@@ -1,7 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Clock, Users, MessageSquare, Send, Volume2, VolumeX, Moon, AlertTriangle, Vote, Siren, EyeOff, UserCheck, ShieldAlert
+  Clock, Users, MessageSquare, Send, Volume2, VolumeX, Moon, Vote, Siren, UserCheck, Copy, Check, UserPlus, Bot, Sparkles
 } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+
+// --- FIREBASE INITIALISATIE VOOR LIVE MULTIPLAYER MET VRIENDEN ---
+let app, auth, db;
+try {
+  const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+  if (firebaseConfig) {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+} catch (err) {
+  console.error("Firebase init error:", err);
+}
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'dutch-betrail-default';
 
 // --- DUTCH BETRAIL CHARACTER DATA & SVG AVATARS ---
 const PLAYERS = [
@@ -292,9 +309,32 @@ const PLAYERS = [
   }
 ];
 
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 export default function App() {
+  const [user, setUser] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [hasJoined, setHasJoined] = useState(false);
+
+  // Keuzes: 'AI' of 'FRIENDS'
+  const [playMode, setPlayMode] = useState('AI'); // 'AI' | 'FRIENDS'
+  const [friendAction, setFriendAction] = useState('CREATE'); // 'CREATE' | 'JOIN'
+  const [roomCode, setRoomCode] = useState('');
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [lobbyError, setLobbyError] = useState('');
+  const [isWaitingLobby, setIsWaitingLobby] = useState(false);
+  const [fillWithAI, setFillWithAI] = useState(true);
+  const [roomPlayers, setRoomPlayers] = useState([]); // [{ uid, name, slotId, isHost }]
+  const [isHost, setIsHost] = useState(false);
+
   const [selectedRoleChoice, setSelectedRoleChoice] = useState('RANDOM');
   const [myPlayerId, setMyPlayerId] = useState('14');
   const [playersList, setPlayersList] = useState(PLAYERS);
@@ -304,17 +344,17 @@ export default function App() {
   const [myVoteTarget, setMyVoteTarget] = useState(null);
   const [deadPlayers, setDeadPlayers] = useState([]);
   const [gamePhase, setGamePhase] = useState('DAG'); // 'DAG', 'NACHT', of 'GAMEOVER'
-  const [winnerTeam, setWinnerTeam] = useState(null); // 'BURGERS' of 'WEERWOLVEN'
+  const [winnerTeam, setWinnerTeam] = useState(null);
 
   // Echte Weerwolven Rol-states
   const [nightActionDone, setNightActionDone] = useState(false);
   const [wolfTargetId, setWolfTargetId] = useState(null);
   const [protectedPlayerId, setProtectedPlayerId] = useState(null);
-  const [revealedRoles, setRevealedRoles] = useState({}); // Voor de Ziener (Dun) & Spiekende meisje
+  const [revealedRoles, setRevealedRoles] = useState({});
   const [witchSaveUsed, setWitchSaveUsed] = useState(false);
   const [witchPoisonUsed, setWitchPoisonUsed] = useState(false);
-  const [witchAction, setWitchAction] = useState(null); // { type: 'SAVE' | 'POISON', targetId }
-  const [lovers, setLovers] = useState([]); // Cupido koppel
+  const [witchAction, setWitchAction] = useState(null);
+  const [lovers, setLovers] = useState([]);
   const [hunterMustShoot, setHunterMustShoot] = useState(false);
 
   const [eventLog, setEventLog] = useState([
@@ -324,17 +364,105 @@ export default function App() {
   const [dayNumber, setDayNumber] = useState(1);
   const [phaseBanner, setPhaseBanner] = useState(null);
   const [messages, setMessages] = useState([
-    { id: 1, sender: 'Martijn Geritsen', text: 'Welkom in Wakkerdam! Kies je naam om te beginnen...', isMayor: true }
+    { id: 1, sender: 'Martijn Geritsen', text: 'Welkom in Wakkerdam! Kies of je met vrienden of met AI speelt.', isMayor: true }
   ]);
   const [inputMsg, setInputMsg] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [timer, setTimer] = useState(45);
   const chatBottomRef = useRef(null);
 
+  // Authenticatie voor multiplayer kamers
+  useEffect(() => {
+    if (!auth) return;
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.error("Auth error:", e);
+      }
+    };
+    initAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsub();
+  }, []);
+
+  // Live Firestore Sync als je in een Vrienden-kamer zit
+  useEffect(() => {
+    if (playMode !== 'FRIENDS' || !roomCode || !db || !user) return;
+
+    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+    const unsub = onSnapshot(
+      roomRef,
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+
+        if (data.participants) {
+          setRoomPlayers(data.participants);
+          const meInRoom = data.participants.find((p) => p.uid === user.uid);
+          if (meInRoom) {
+            setMyPlayerId(meInRoom.slotId);
+          }
+        }
+
+        if (data.status === 'PLAYING') {
+          setIsWaitingLobby(false);
+          setHasJoined(true);
+
+          if (data.customNames) {
+            setPlayersList(
+              PLAYERS.map((p) => ({
+                ...p,
+                playerName: data.customNames[p.id] || p.playerName
+              }))
+            );
+          }
+          if (typeof data.dayNumber === 'number') setDayNumber(data.dayNumber);
+          if (data.gamePhase) setGamePhase(data.gamePhase);
+          if (data.winnerTeam !== undefined) setWinnerTeam(data.winnerTeam);
+          if (data.deadPlayers) setDeadPlayers(data.deadPlayers);
+          if (data.votes) setVotes(data.votes);
+          if (data.wolfTargetId !== undefined) setWolfTargetId(data.wolfTargetId);
+          if (data.protectedPlayerId !== undefined) setProtectedPlayerId(data.protectedPlayerId);
+          if (data.lovers) setLovers(data.lovers);
+          if (data.eventLog) setEventLog(data.eventLog);
+          if (data.messages) setMessages(data.messages);
+          if (typeof data.timer === 'number') setTimer(data.timer);
+        }
+      },
+      (err) => console.error("Room snapshot error:", err)
+    );
+
+    return () => unsub();
+  }, [playMode, roomCode, user]);
+
+  // Helper om kamerstaat naar vrienden te synchroniseren
+  const syncRoomUpdate = async (partialState) => {
+    if (playMode !== 'FRIENDS' || !roomCode || !db || !user) return;
+    try {
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+      await updateDoc(roomRef, partialState);
+    } catch (e) {
+      console.error("Sync error:", e);
+    }
+  };
+
   const myPlayer = playersList.find((p) => p.id === myPlayerId);
 
   const addEvent = (icon, text, type = 'info') => {
-    setEventLog((prev) => [{ id: Date.now() + Math.random(), icon, text, type }, ...prev.slice(0, 7)]);
+    setEventLog((prev) => {
+      const updated = [{ id: Date.now() + Math.random(), icon, text, type }, ...prev.slice(0, 7)];
+      if (playMode === 'FRIENDS' && roomCode) {
+        syncRoomUpdate({ eventLog: updated });
+      }
+      return updated;
+    });
   };
 
   const showAnnouncement = (title, subtitle, variant = 'day') => {
@@ -342,6 +470,199 @@ export default function App() {
     setTimeout(() => {
       setPhaseBanner(null);
     }, 5500);
+  };
+
+  const copyCodeToClipboard = () => {
+    if (!roomCode) return;
+    const textArea = document.createElement('textarea');
+    textArea.value = roomCode;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    } catch (err) {
+      console.error('Copy failed', err);
+    }
+    document.body.removeChild(textArea);
+  };
+
+  // --- VRIENDEN KAMER AANMAKEN ---
+  const handleCreateFriendRoom = async (e) => {
+    e.preventDefault();
+    setLobbyError('');
+    if (!playerName.trim()) {
+      setLobbyError('Vul eerst je naam in!');
+      return;
+    }
+    if (!db || !user) {
+      setLobbyError('Verbinding met server bezig, probeer het over 2 seconden opnieuw.');
+      return;
+    }
+
+    const newCode = generateRoomCode();
+    const chosenSlot =
+      selectedRoleChoice === 'RANDOM'
+        ? PLAYERS[Math.floor(Math.random() * PLAYERS.length)]
+        : PLAYERS.find((p) => p.role === selectedRoleChoice) || PLAYERS[0];
+
+    const initialParticipants = [
+      {
+        uid: user.uid,
+        name: playerName.trim(),
+        slotId: chosenSlot.id,
+        isHost: true
+      }
+    ];
+
+    try {
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', newCode);
+      await setDoc(roomRef, {
+        code: newCode,
+        status: 'LOBBY',
+        hostUid: user.uid,
+        participants: initialParticipants,
+        createdAt: Date.now()
+      });
+
+      setRoomCode(newCode);
+      setIsHost(true);
+      setMyPlayerId(chosenSlot.id);
+      setRoomPlayers(initialParticipants);
+      setIsWaitingLobby(true);
+    } catch (err) {
+      console.error(err);
+      setLobbyError('Kon geen kamer aanmaken. Probeer het opnieuw.');
+    }
+  };
+
+  // --- VRIENDEN KAMER JOINEN MET CODE ---
+  const handleJoinFriendRoom = async (e) => {
+    e.preventDefault();
+    setLobbyError('');
+    const formattedCode = joinCodeInput.trim().toUpperCase();
+    if (!playerName.trim()) {
+      setLobbyError('Vul eerst je naam in!');
+      return;
+    }
+    if (formattedCode.length < 4) {
+      setLobbyError('Voer een geldige kamercode in!');
+      return;
+    }
+    if (!db || !user) {
+      setLobbyError('Verbinding met server bezig, probeer het over 2 seconden opnieuw.');
+      return;
+    }
+
+    try {
+      const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', formattedCode);
+      const snap = await getDoc(roomRef);
+
+      if (!snap.exists()) {
+        setLobbyError(`Geen kamer gevonden met code "${formattedCode}". Controleer de code!`);
+        return;
+      }
+
+      const data = snap.data();
+      const existingParticipants = data.participants || [];
+
+      if (existingParticipants.length >= 14) {
+        setLobbyError('Deze kamer zit helaas vol (maximaal 14 spelers).');
+        return;
+      }
+
+      // Zoek een vrij karakter-slot voor deze vriend
+      const takenSlotIds = existingParticipants.map((p) => p.slotId);
+      const availableSlots = PLAYERS.filter((p) => !takenSlotIds.includes(p.id));
+      const assignedSlot = availableSlots[Math.floor(Math.random() * availableSlots.length)] || PLAYERS[0];
+
+      const alreadyIn = existingParticipants.find((p) => p.uid === user.uid);
+      const updatedParticipants = alreadyIn
+        ? existingParticipants
+        : [
+            ...existingParticipants,
+            {
+              uid: user.uid,
+              name: playerName.trim(),
+              slotId: assignedSlot.id,
+              isHost: false
+            }
+          ];
+
+      await updateDoc(roomRef, {
+        participants: updatedParticipants
+      });
+
+      setRoomCode(formattedCode);
+      setIsHost(data.hostUid === user.uid);
+      setMyPlayerId(alreadyIn ? alreadyIn.slotId : assignedSlot.id);
+      setRoomPlayers(updatedParticipants);
+      setIsWaitingLobby(true);
+    } catch (err) {
+      console.error(err);
+      setLobbyError('Fout bij deelnemen aan de kamer.');
+    }
+  };
+
+  // --- START HET MULTIPLAYER SPEL VANUIT DE WACHTKAMER ---
+  const handleStartMultiplayerGame = async () => {
+    if (!roomCode || !db) return;
+
+    const customNames = {};
+    roomPlayers.forEach((rp) => {
+      customNames[rp.slotId] = rp.name;
+    });
+
+    const activePlayers = PLAYERS.map((p) => ({
+      ...p,
+      playerName: customNames[p.id] || p.playerName
+    }));
+
+    // Als 'fillWithAI' UIT staat, markeren we lege plekken direct als niet-meespelend (dood/inactief)
+    const inactiveSlots = !fillWithAI
+      ? PLAYERS.filter((p) => !roomPlayers.some((rp) => rp.slotId === p.id)).map((p) => p.id)
+      : [];
+
+    const mySlotObj = activePlayers.find((p) => p.id === myPlayerId) || activePlayers[0];
+
+    const initialMessages = [
+      { id: 1, sender: 'Systeem', text: `🌅 DAG 1 (Kamer ${roomCode}) - Het spel met vrienden is gestart!`, isSystem: true },
+      { id: 2, sender: 'Martijn Geritsen', text: `Welkom allemaal in Wakkerdam! Bespreek wie de Weerwolven zijn en breng je stem uit!`, isMayor: true }
+    ];
+    const initialEvents = [
+      { id: Date.now(), icon: '🌅', text: `Dag 1 is begonnen met ${roomPlayers.length} vriend(en)!`, type: 'day' }
+    ];
+
+    setPlayersList(activePlayers);
+    setDeadPlayers(inactiveSlots);
+    setDayNumber(1);
+    setGamePhase('DAG');
+    setWinnerTeam(null);
+    setVotes({});
+    setMyVoteTarget(null);
+    setRevealedRoles({ [myPlayerId]: true });
+    setTimer(45);
+    setIsWaitingLobby(false);
+    setHasJoined(true);
+
+    showAnnouncement('DAG 1 IS BEGONNEN', `Jouw geheime rol: ${mySlotObj.roleTitle} (${mySlotObj.role})`, 'day');
+
+    await syncRoomUpdate({
+      status: 'PLAYING',
+      customNames,
+      dayNumber: 1,
+      gamePhase: 'DAG',
+      winnerTeam: null,
+      deadPlayers: inactiveSlots,
+      votes: {},
+      wolfTargetId: null,
+      protectedPlayerId: null,
+      lovers: [],
+      eventLog: initialEvents,
+      messages: initialMessages,
+      timer: 45
+    });
   };
 
   // Controleer of Burgers of Weerwolven hebben gewonnen
@@ -353,6 +674,7 @@ export default function App() {
     if (aliveWolves.length === 0) {
       setGamePhase('GAMEOVER');
       setWinnerTeam('BURGERS');
+      syncRoomUpdate({ gamePhase: 'GAMEOVER', winnerTeam: 'BURGERS' });
       showAnnouncement('🏆 DE BURGERS HEBBEN GEWONNEN!', 'Alle Weerwolven zijn uitgeschakeld! Wakkerdam is weer veilig.', 'day');
       addEvent('🏆', 'OVERWINNING! Alle Weerwolven zijn verslagen door de Burgers!', 'day');
       return true;
@@ -361,6 +683,7 @@ export default function App() {
     if (aliveWolves.length >= aliveVillagers.length) {
       setGamePhase('GAMEOVER');
       setWinnerTeam('WEERWOLVEN');
+      syncRoomUpdate({ gamePhase: 'GAMEOVER', winnerTeam: 'WEERWOLVEN' });
       showAnnouncement('🐺 DE WEERWOLVEN HEBBEN GEWONNEN!', 'De Weerwolven zijn in de meerderheid en nemen Wakkerdam over!', 'wolf');
       addEvent('🐺', 'NEDERLAAG! De Weerwolven hebben het dorp overgenomen!', 'danger');
       return true;
@@ -375,21 +698,15 @@ export default function App() {
       updatedDead.push(targetId);
     }
 
-    // Controleer Cupido geliefden
     if (lovers.includes(targetId)) {
       const otherLoverId = lovers.find((id) => id !== targetId);
       if (otherLoverId && !updatedDead.includes(otherLoverId)) {
         const otherLover = playersList.find((p) => p.id === otherLoverId);
         updatedDead.push(otherLoverId);
         addEvent('💔', `Liefdesverdriet! ${otherLover.playerName} (${otherLover.roleTitle}) sterft mee met hun geliefde!`, 'danger');
-        setMessages((m) => [
-          ...m,
-          { id: Date.now() + 2, sender: '💘 Cupido', text: `💔 ${otherLover.playerName} kon niet leven zonder hun geliefde en sterft ook (${otherLover.roleTitle})!`, isEmergency: true }
-        ]);
       }
     }
 
-    // Controleer of de Jager (Virgil van Dam) sterft
     const killedObj = playersList.find((p) => p.id === targetId);
     if (killedObj && killedObj.role === 'Jager') {
       if (targetId === myPlayerId) {
@@ -401,10 +718,6 @@ export default function App() {
           const shotTarget = candidates[Math.floor(Math.random() * candidates.length)];
           updatedDead.push(shotTarget.id);
           addEvent('🎯', `De Jager (${killedObj.playerName}) schiet vlak voor zijn dood ${shotTarget.playerName} (${shotTarget.roleTitle}) neer!`, 'danger');
-          setMessages((m) => [
-            ...m,
-            { id: Date.now() + 3, sender: '🎯 Jager Schot', text: `💥 ${killedObj.playerName} was de Jager en schiet met zijn laatste adem ${shotTarget.playerName} (${shotTarget.roleTitle}) neer!`, isEmergency: true }
-          ]);
         }
       }
     }
@@ -412,7 +725,8 @@ export default function App() {
     return updatedDead;
   };
 
-  const handleJoinGame = (e) => {
+  // --- START SINGLEPLAYER MET AI ---
+  const handleJoinAIGame = (e) => {
     e.preventDefault();
     if (!playerName.trim()) return;
 
@@ -457,13 +771,12 @@ export default function App() {
   const resolveDayToNight = () => {
     if (gamePhase !== 'DAG') return;
 
-    // Laat alle levende AI-spelers logisch meestemmen
     const finalVotes = { ...votes };
-    const aliveBots = playersList.filter((p) => !deadPlayers.includes(p.id) && p.id !== myPlayerId);
+    const humanSlotIds = playMode === 'FRIENDS' ? roomPlayers.map((rp) => rp.slotId) : [myPlayerId];
+    const aliveBots = playersList.filter((p) => !deadPlayers.includes(p.id) && !humanSlotIds.includes(p.id));
     const aliveAll = playersList.filter((p) => !deadPlayers.includes(p.id));
 
     aliveBots.forEach((bot) => {
-      // Bots stemmen vaker op iemand die al stemmen heeft, of een willekeurige niet-wolf als de bot zelf wolf is
       const possibleTargets = aliveAll.filter((t) => {
         if (t.id === bot.id) return false;
         if (bot.role === 'Weerwolven' && t.role === 'Weerwolven') return false;
@@ -471,13 +784,11 @@ export default function App() {
       });
       if (possibleTargets.length > 0) {
         const chosen = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
-        // Burgemeester (Willempie) telt voor 2 stemmen!
         const weight = bot.role === 'Burgemeester' ? 2 : 1;
         finalVotes[chosen.id] = (finalVotes[chosen.id] || 0) + weight;
       }
     });
 
-    // Bepaal speler met meeste stemmen
     let topTargetId = null;
     let maxVotes = 0;
     Object.entries(finalVotes).forEach(([id, count]) => {
@@ -492,12 +803,12 @@ export default function App() {
     if (topTargetId && maxVotes > 0) {
       const votedPlayer = playersList.find((p) => p.id === topTargetId);
 
-      // Dorpsgek (Joost Groot) wint direct als hij overdag wordt weggestemd!
       if (votedPlayer.role === 'Dorpsgek') {
         currentDead.push(topTargetId);
         setDeadPlayers(currentDead);
         setGamePhase('GAMEOVER');
         setWinnerTeam('DORPSGEK');
+        syncRoomUpdate({ deadPlayers: currentDead, gamePhase: 'GAMEOVER', winnerTeam: 'DORPSGEK' });
         showAnnouncement('🤪 DE DORPSGEK WINT!', `${votedPlayer.playerName} was de Dorpsgek en wilde weggestemd worden!`, 'day');
         addEvent('🤪', `BIZAR! ${votedPlayer.playerName} was de Dorpsgek en wint het spel omdat hij werd weggestemd!`, 'day');
         return;
@@ -512,22 +823,25 @@ export default function App() {
         'eliminated'
       );
       addEvent('⚖️', `Dag ${dayNumber} Stemming: ${votedPlayer.playerName} (${votedPlayer.roleTitle} - ${votedPlayer.role}) is weggestemd!`, 'danger');
-      setMessages((m) => [
-        ...m,
-        {
-          id: Date.now(),
-          sender: 'Martijn Geritsen',
-          text: `⚖️ Met ${maxVotes} stemmen heeft het dorp ${votedPlayer.playerName} weggestemd! Geheime rol was: ${votedPlayer.roleIcon} ${votedPlayer.roleTitle} (${votedPlayer.role}).`,
-          isMayor: true
-        }
-      ]);
+      setMessages((m) => {
+        const nextMsgs = [
+          ...m,
+          {
+            id: Date.now(),
+            sender: 'Martijn Geritsen',
+            text: `⚖️ Met ${maxVotes} stemmen heeft het dorp ${votedPlayer.playerName} weggestemd! Geheime rol was: ${votedPlayer.roleIcon} ${votedPlayer.roleTitle} (${votedPlayer.role}).`,
+            isMayor: true
+          }
+        ];
+        syncRoomUpdate({ messages: nextMsgs });
+        return nextMsgs;
+      });
 
       if (checkWinCondition(currentDead)) return;
     } else {
       addEvent('⚖️', `Dag ${dayNumber}: Niemand had genoeg stemmen om weggestemd te worden.`, 'info');
     }
 
-    // Start de NACHTFASE en bereid AI-nachtacties voor
     setVotes({});
     setMyVoteTarget(null);
     setNightActionDone(false);
@@ -536,7 +850,6 @@ export default function App() {
     setGamePhase('NACHT');
     setTimer(30);
 
-    // Kies alvast een doelwit voor de Weerwolven (zodat de Heks weet wie er wordt aangevallen!)
     const potentialWolfVictims = playersList.filter(
       (p) => !currentDead.includes(p.id) && p.role !== 'Weerwolven'
     );
@@ -544,16 +857,19 @@ export default function App() {
       ? potentialWolfVictims[Math.floor(Math.random() * potentialWolfVictims.length)]
       : null;
 
-    setWolfTargetId(chosenWolfVictim ? chosenWolfVictim.id : null);
+    const nextWolfTarget = chosenWolfVictim ? chosenWolfVictim.id : null;
+    setWolfTargetId(nextWolfTarget);
 
-    // Beschermengel AI kiest iemand om te beschermen (als speler niet zelf Beschermengel is)
+    let nextProtected = null;
     if (myPlayer?.role !== 'Beschermengel') {
       const aliveForGuard = playersList.filter((p) => !currentDead.includes(p.id));
       const guardChoice = aliveForGuard[Math.floor(Math.random() * aliveForGuard.length)];
-      if (guardChoice) setProtectedPlayerId(guardChoice.id);
+      if (guardChoice) {
+        nextProtected = guardChoice.id;
+        setProtectedPlayerId(nextProtected);
+      }
     }
 
-    // Spiekende meisje (als speler dat is) ziet automatisch een hint!
     if (myPlayer?.role === 'Spiekende meisje' && !currentDead.includes(myPlayerId)) {
       const wolves = playersList.filter((p) => p.role === 'Weerwolven' && !currentDead.includes(p.id));
       if (wolves.length > 0) {
@@ -563,10 +879,14 @@ export default function App() {
       }
     }
 
-    setMessages((m) => [
-      ...m,
-      { id: Date.now() + 1, sender: 'Systeem', text: `🌙 NACHT ${dayNumber} VALT - Iedereen sluit zijn ogen. Speciale rollen voeren nu hun actie uit!`, isWolf: true }
-    ]);
+    syncRoomUpdate({
+      deadPlayers: currentDead,
+      votes: {},
+      gamePhase: 'NACHT',
+      wolfTargetId: nextWolfTarget,
+      protectedPlayerId: nextProtected,
+      timer: 30
+    });
   };
 
   // --- FASE 2: NACHT ACTIES VERWERKEN -> START VOLGENDE DAG ---
@@ -577,29 +897,22 @@ export default function App() {
     let currentDead = [...deadPlayers];
     let nightReport = [];
 
-    // 1. Controleer de aanval van de Weerwolven
     if (wolfTargetId && !currentDead.includes(wolfTargetId)) {
       const victim = playersList.find((p) => p.id === wolfTargetId);
 
-      // Werd het slachtoffer beschermd door de Beschermengel?
       if (protectedPlayerId === wolfTargetId) {
         nightReport.push(`🛡️ De Beschermengel heeft ${victim.playerName} vannacht gered van een wolvenaanval!`);
         addEvent('🛡️', `Nacht ${currentDay}: De Beschermengel beschermde het doelwit van de Weerwolven! Niemand stierf.`, 'day');
-      }
-      // Werd het slachtoffer gered door het levensdrankje van de Heks?
-      else if (witchAction?.type === 'SAVE') {
+      } else if (witchAction?.type === 'SAVE') {
         nightReport.push(`🧪 De Heks heeft haar levensdrankje gebruikt om ${victim.playerName} van de dood te redden!`);
         addEvent('🧪', `Nacht ${currentDay}: De Heks redde het slachtoffer van de Weerwolven!`, 'day');
-      }
-      // Anders sterft het slachtoffer door de Weerwolven!
-      else {
+      } else {
         currentDead = eliminatePlayer(wolfTargetId, 'weerwolven', currentDead);
         nightReport.push(`🐺 De Weerwolven hebben ${victim.playerName} (${victim.roleTitle} - ${victim.role}) verslonden!`);
         addEvent('🐺', `Nacht ${currentDay}: ${victim.playerName} is gedood door de Weerwolven! (${victim.roleTitle})`, 'danger');
       }
     }
 
-    // 2. Controleer of de Heks haar gifdrankje heeft gebruikt
     if (witchAction?.type === 'POISON' && witchAction.targetId && !currentDead.includes(witchAction.targetId)) {
       const poisoned = playersList.find((p) => p.id === witchAction.targetId);
       currentDead = eliminatePlayer(witchAction.targetId, 'heks_gif', currentDead);
@@ -612,6 +925,14 @@ export default function App() {
     setGamePhase('DAG');
     setTimer(45);
 
+    syncRoomUpdate({
+      deadPlayers: currentDead,
+      wolfTargetId: null,
+      gamePhase: 'DAG',
+      dayNumber: nextDay,
+      timer: 45
+    });
+
     if (checkWinCondition(currentDead)) return;
 
     if (nightReport.length > 0) {
@@ -620,15 +941,19 @@ export default function App() {
         nightReport.join(' | '),
         nightReport.some((r) => r.includes('🐺') || r.includes('☠️')) ? 'wolf' : 'day'
       );
-      setMessages((m) => [
-        ...m,
-        {
-          id: Date.now(),
-          sender: `🌅 DAG ${nextDay} VERSLAG`,
-          text: nightReport.join(' '),
-          isEmergency: nightReport.some((r) => r.includes('🐺') || r.includes('☠️'))
-        }
-      ]);
+      setMessages((m) => {
+        const nextMsgs = [
+          ...m,
+          {
+            id: Date.now(),
+            sender: `🌅 DAG ${nextDay} VERSLAG`,
+            text: nightReport.join(' '),
+            isEmergency: nightReport.some((r) => r.includes('🐺') || r.includes('☠️'))
+          }
+        ];
+        syncRoomUpdate({ messages: nextMsgs });
+        return nextMsgs;
+      });
     } else {
       showAnnouncement(`🌅 DAG ${nextDay} IS BEGONNEN`, 'Het was een rustige nacht in Wakkerdam. Niemand is gestorven.', 'day');
       addEvent('🌅', `Dag ${nextDay}: Niemand is vannacht gestorven.`, 'day');
@@ -641,14 +966,13 @@ export default function App() {
     const target = playersList.find((p) => p.id === targetId);
     if (!target) return;
 
-    // 1. WEERWOLF (De zwarte tulp): Kies slachtoffer
     if (myPlayer.role === 'Weerwolven' && gamePhase === 'NACHT') {
       setWolfTargetId(targetId);
       setNightActionDone(true);
+      syncRoomUpdate({ wolfTargetId: targetId });
       addEvent('🐺', `Jij hebt ${target.playerName} gekozen als prooi voor vannacht!`, 'danger');
     }
 
-    // 2. ZIENER (Dun): Bekijk geheime rol van een speler
     if (myPlayer.role === 'Ziener' && gamePhase === 'NACHT' && !nightActionDone) {
       setRevealedRoles((prev) => ({ ...prev, [targetId]: true }));
       setNightActionDone(true);
@@ -656,14 +980,13 @@ export default function App() {
       addEvent('🔮', `Visioen: Jij keek in je glazen bol en zag dat ${target.playerName} de ${target.roleTitle} (${target.role}) is!`, 'night');
     }
 
-    // 3. BESCHERMENGEL (Max Verlopen): Bescherm iemand vannacht
     if (myPlayer.role === 'Beschermengel' && gamePhase === 'NACHT' && !nightActionDone) {
       setProtectedPlayerId(targetId);
       setNightActionDone(true);
+      syncRoomUpdate({ protectedPlayerId: targetId });
       addEvent('🛡️', `Jij beschermt ${target.playerName} vannacht tegen de weerwolven!`, 'day');
     }
 
-    // 4. HEKS (Nicolle Instructie): Gebruik gifdrankje op speler
     if (myPlayer.role === 'De heks' && gamePhase === 'NACHT' && !witchPoisonUsed && !nightActionDone) {
       setWitchAction({ type: 'POISON', targetId });
       setWitchPoisonUsed(true);
@@ -671,11 +994,11 @@ export default function App() {
       addEvent('☠️', `Jij hebt je gifdrankje ingezet op ${target.playerName}!`, 'danger');
     }
 
-    // 5. CUPIDO (Elsa de Tall): Koppel 2 geliefden op Dag/Nacht 1
     if (myPlayer.role === 'Cupido' && lovers.length < 2) {
       if (!lovers.includes(targetId)) {
         const newLovers = [...lovers, targetId];
         setLovers(newLovers);
+        syncRoomUpdate({ lovers: newLovers });
         if (newLovers.length === 2) {
           const p1 = playersList.find((p) => p.id === newLovers[0]);
           const p2 = playersList.find((p) => p.id === newLovers[1]);
@@ -685,11 +1008,11 @@ export default function App() {
       }
     }
 
-    // 6. JAGER (Virgil van Dam): Laatste schot na overlijden
     if (hunterMustShoot) {
       const updated = deadPlayers.includes(targetId) ? deadPlayers : [...deadPlayers, targetId];
       setDeadPlayers(updated);
       setHunterMustShoot(false);
+      syncRoomUpdate({ deadPlayers: updated });
       showAnnouncement('🎯 JAGER SCHIET!', `Jij schoot ${target.playerName} (${target.roleTitle}) neer met je laatste kogel!`, 'wolf');
       addEvent('🎯', `Jij nam ${target.playerName} (${target.roleTitle}) mee in je graf!`, 'danger');
       checkWinCondition(updated);
@@ -708,6 +1031,9 @@ export default function App() {
 
   useEffect(() => {
     if (!hasJoined || gamePhase === 'GAMEOVER') return;
+    // In vriendenmodus beheert de host de timer zodat iedereen gelijk loopt
+    if (playMode === 'FRIENDS' && !isHost) return;
+
     const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {
@@ -726,7 +1052,7 @@ export default function App() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [hasJoined, gamePhase, votes, deadPlayers, wolfTargetId, protectedPlayerId, witchAction]);
+  }, [hasJoined, gamePhase, votes, deadPlayers, wolfTargetId, protectedPlayerId, witchAction, playMode, isHost]);
 
   const handleNextPhaseManual = () => {
     if (gamePhase === 'DAG') {
@@ -756,7 +1082,6 @@ export default function App() {
     e.stopPropagation();
     if (deadPlayers.includes(id) || deadPlayers.includes(myPlayerId) || gamePhase !== 'DAG') return;
 
-    // Verwijder eventuele eerdere stem van de speler zodat je maar 1x per dag stemt
     setVotes((prev) => {
       const updated = { ...prev };
       const weight = myPlayer?.role === 'Burgemeester' ? 2 : 1;
@@ -764,15 +1089,20 @@ export default function App() {
         updated[myVoteTarget] = Math.max(0, updated[myVoteTarget] - weight);
       }
       updated[id] = (updated[id] || 0) + weight;
+      syncRoomUpdate({ votes: updated });
       return updated;
     });
 
     setMyVoteTarget(id);
     addEvent('🗳️', `${playerName || 'Jij'} stemde op ${targetName}${myPlayer?.role === 'Burgemeester' ? ' (2x Burgemeester-stem!)' : ''}`, 'info');
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), sender: 'Stemming', text: `🗳️ ${playerName || 'Jij'} heeft zijn stem uitgebracht op ${targetName}!`, isMayor: true }
-    ]);
+    setMessages((prev) => {
+      const nextMsgs = [
+        ...prev,
+        { id: Date.now(), sender: 'Stemming', text: `🗳️ ${playerName || 'Jij'} heeft zijn stem uitgebracht op ${targetName}!`, isMayor: true }
+      ];
+      syncRoomUpdate({ messages: nextMsgs });
+      return nextMsgs;
+    });
   };
 
   const triggerEmergency = () => {
@@ -782,20 +1112,28 @@ export default function App() {
     setTimer(30);
     showAnnouncement('🚨 NOODVERGADERING!', 'Iedereen naar het kampvuur! Stem direct op een verdachte!', 'wolf');
     addEvent('🚨', 'Noodvergadering ingeroepen door een speler!', 'danger');
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), sender: 'AMONG US NOODVERGADERING', text: '🚨 NOODBERAAD GEROEPEN! Stem binnen 30 seconden op een verdachte!', isEmergency: true }
-    ]);
+    setMessages((prev) => {
+      const nextMsgs = [
+        ...prev,
+        { id: Date.now(), sender: 'AMONG US NOODVERGADERING', text: '🚨 NOODBERAAD GEROEPEN! Stem binnen 30 seconden op een verdachte!', isEmergency: true }
+      ];
+      syncRoomUpdate({ gamePhase: 'DAG', timer: 30, messages: nextMsgs });
+      return nextMsgs;
+    });
     setTimeout(() => setEmergencyActive(false), 5000);
   };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!inputMsg.trim()) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), sender: playerName || 'Jij', text: inputMsg }
-    ]);
+    setMessages((prev) => {
+      const nextMsgs = [
+        ...prev,
+        { id: Date.now(), sender: playerName || 'Jij', text: inputMsg }
+      ];
+      syncRoomUpdate({ messages: nextMsgs });
+      return nextMsgs;
+    });
     setInputMsg('');
     setTimeout(() => {
       chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -807,59 +1145,260 @@ export default function App() {
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans select-none relative transition-colors duration-500 ${emergencyActive ? 'ring-8 ring-red-600/80 inset-0' : ''}`}>
       
-      {/* NAAM & ROL KEUZE SCHERM (LOBBY MODAL) */}
+      {/* START SCHERM: KEUZE TUSSEN MET VRIENDEN OF MET AI */}
       {!hasJoined && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border-2 border-amber-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-amber-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
             <div className="text-3xl">🐺 🇳🇱 🌷</div>
             <div>
               <h2 className="text-2xl font-black uppercase text-amber-400 font-serif tracking-wider">
-                Welkom in Wakkerdam
+                The Dutch Betrail
               </h2>
               <p className="text-xs text-slate-300 mt-1">
-                Speel echte Weerwolven! Kies je naam en eventueel je favoriete rol om te testen.
+                Kies of je alleen tegen slimme AI speelt of samen met je vrienden via een kamercode!
               </p>
             </div>
-            <form onSubmit={handleJoinGame} className="space-y-4 text-left">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1">Jouw Spelersnaam</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={18}
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Typ je naam..."
-                  className="w-full bg-slate-950 text-amber-100 text-center font-bold text-base rounded-xl px-4 py-2.5 border-2 border-amber-800 focus:outline-none focus:border-amber-500 placeholder-slate-600"
-                />
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1">Kies Rol (of Willekeurig)</label>
-                <select
-                  value={selectedRoleChoice}
-                  onChange={(e) => setSelectedRoleChoice(e.target.value)}
-                  className="w-full bg-slate-950 text-amber-200 font-semibold text-xs rounded-xl px-3 py-2.5 border-2 border-amber-800 focus:outline-none focus:border-amber-500"
+            {/* WACHTKAMER VOOR VRIENDEN (ALS KAMER IS AANGEMAAKT OF GEJOIND) */}
+            {isWaitingLobby ? (
+              <div className="space-y-4 text-left bg-slate-950/90 border border-amber-700/70 rounded-xl p-4">
+                <div className="text-center space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-amber-400">
+                    Deel deze kamercode met je vrienden
+                  </span>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <div className="bg-slate-900 border-2 border-amber-500 text-amber-300 font-mono font-black text-2xl tracking-[0.25em] px-5 py-2 rounded-xl shadow-inner">
+                      {roomCode}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyCodeToClipboard}
+                      className="bg-amber-700 hover:bg-amber-600 text-white p-3 rounded-xl border border-amber-400 transition-colors flex items-center gap-1 text-xs font-bold"
+                      title="Kopieer kamercode"
+                    >
+                      {copiedCode ? <Check size={18} className="text-emerald-300" /> : <Copy size={18} />}
+                      <span>{copiedCode ? 'Gekopieerd!' : 'Kopieer'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold text-amber-300 mb-1.5 flex items-center justify-between">
+                    <span>👥 Spelers in de wachtkamer ({roomPlayers.length}/14):</span>
+                    <span className="text-[10px] text-emerald-400 animate-pulse">● Live verbonden</span>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                    {roomPlayers.map((rp, idx) => (
+                      <div key={rp.uid || idx} className="flex items-center justify-between text-xs bg-slate-950 px-3 py-1.5 rounded border border-amber-900/50">
+                        <span className="font-bold text-amber-100">
+                          {rp.name} {rp.uid === user?.uid ? '(Jij)' : ''}
+                        </span>
+                        <span className="text-[10px] text-amber-400 font-semibold">
+                          {rp.isHost ? '👑 Host' : '✅ Klaar'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {isHost ? (
+                  <div className="space-y-3 pt-1">
+                    <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={fillWithAI}
+                        onChange={(e) => setFillWithAI(e.target.checked)}
+                        className="rounded accent-amber-500 w-4 h-4"
+                      />
+                      <span>Vul overige plekken in het dorp aan met AI-spelers</span>
+                    </label>
+
+                    <button
+                      onClick={handleStartMultiplayerGame}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black uppercase tracking-wider py-3 rounded-xl shadow-lg transition-transform active:scale-95"
+                    >
+                      🚀 Start Spel met Vrienden ({roomPlayers.length} {roomPlayers.length === 1 ? 'speler' : 'spelers'})
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-3 bg-amber-950/40 border border-amber-700/50 rounded-xl text-xs text-amber-200 animate-pulse">
+                    ⏳ Wachten tot de host het spel start...
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWaitingLobby(false);
+                    setRoomCode('');
+                  }}
+                  className="w-full text-[11px] text-slate-400 hover:text-slate-200 underline text-center"
                 >
-                  <option value="RANDOM">🎲 Willekeurige Geheime Rol</option>
-                  <option value="Weerwolven">🐺 De zwarte tulp (Weerwolf - Dood 's nachts spelers)</option>
-                  <option value="Ziener">🔮 Dun (Ziener - Bekijk 's nachts rollen)</option>
-                  <option value="De heks">🧪 Nicolle Instructie (De heks - Red of vergiftig)</option>
-                  <option value="Beschermengel">🛡️ Max Verlopen (Beschermengel - Bescherm spelers)</option>
-                  <option value="Cupido">💘 Elsa de Tall (Cupido - Koppel 2 geliefden)</option>
-                  <option value="Jager">🎯 Virgil van Dam (Jager - Schiet bij sterven)</option>
-                  <option value="Burgemeester">👑 Willempie (Burgemeester - Dubbele stem)</option>
-                  <option value="Spiekende meisje">👁️ Annie Frankie (Spiekende meisje - Bespied wolven)</option>
-                </select>
+                  ← Terug naar modus kiezen
+                </button>
               </div>
+            ) : (
+              /* KEUZE SCHERM: MET AI OF MET VRIENDEN */
+              <div className="space-y-4 text-left">
+                {/* 1. Spelersnaam */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1">
+                    1. Jouw Spelersnaam
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={18}
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="Typ je naam..."
+                    className="w-full bg-slate-950 text-amber-100 text-center font-bold text-base rounded-xl px-4 py-2.5 border-2 border-amber-800 focus:outline-none focus:border-amber-500 placeholder-slate-600"
+                  />
+                </div>
 
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-500 hover:to-red-600 text-white font-black uppercase tracking-wider py-3 rounded-xl shadow-lg transition-transform active:scale-95"
-              >
-                Start Dag 1 & Ontvang Rol
-              </button>
-            </form>
+                {/* 2. Kies Spelmodus: AI of Vrienden */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1.5">
+                    2. Met wie wil je spelen?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => { setPlayMode('AI'); setLobbyError(''); }}
+                      className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
+                        playMode === 'AI'
+                          ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <Bot size={22} className={playMode === 'AI' ? 'text-amber-400' : 'text-slate-500'} />
+                      <span className="font-black text-xs uppercase">Met AI Spelen</span>
+                      <span className="text-[10px] opacity-75">Direct alleen starten</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setPlayMode('FRIENDS'); setLobbyError(''); }}
+                      className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${
+                        playMode === 'FRIENDS'
+                          ? 'bg-red-950/80 border-red-400 text-red-100 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      <UserPlus size={22} className={playMode === 'FRIENDS' ? 'text-red-400' : 'text-slate-500'} />
+                      <span className="font-black text-xs uppercase">Met Vrienden</span>
+                      <span className="text-[10px] opacity-75">Maak of voer code in</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* OPTIE A: MET AI SPELEN */}
+                {playMode === 'AI' && (
+                  <form onSubmit={handleJoinAIGame} className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1">
+                        3. Kies Rol (of Willekeurig)
+                      </label>
+                      <select
+                        value={selectedRoleChoice}
+                        onChange={(e) => setSelectedRoleChoice(e.target.value)}
+                        className="w-full bg-slate-950 text-amber-200 font-semibold text-xs rounded-xl px-3 py-2.5 border-2 border-amber-800 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="RANDOM">🎲 Willekeurige Geheime Rol</option>
+                        <option value="Weerwolven">🐺 De zwarte tulp (Weerwolf - Dood 's nachts spelers)</option>
+                        <option value="Ziener">🔮 Dun (Ziener - Bekijk 's nachts rollen)</option>
+                        <option value="De heks">🧪 Nicolle Instructie (De heks - Red of vergiftig)</option>
+                        <option value="Beschermengel">🛡️ Max Verlopen (Beschermengel - Bescherm spelers)</option>
+                        <option value="Cupido">💘 Elsa de Tall (Cupido - Koppel 2 geliefden)</option>
+                        <option value="Jager">🎯 Virgil van Dam (Jager - Schiet bij sterven)</option>
+                        <option value="Burgemeester">👑 Willempie (Burgemeester - Dubbele stem)</option>
+                        <option value="Spiekende meisje">👁️ Annie Frankie (Spiekende meisje - Bespied wolven)</option>
+                      </select>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-500 hover:to-red-600 text-white font-black uppercase tracking-wider py-3 rounded-xl shadow-lg transition-transform active:scale-95"
+                    >
+                      Start Dag 1 tegen AI
+                    </button>
+                  </form>
+                )}
+
+                {/* OPTIE B: MET VRIENDEN SPELEN (CODE KRIJGEN OF CODE INVOEREN) */}
+                {playMode === 'FRIENDS' && (
+                  <div className="space-y-3 bg-slate-950/80 p-3.5 rounded-xl border border-amber-800/60">
+                    <div className="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => { setFriendAction('CREATE'); setLobbyError(''); }}
+                        className={`py-1.5 text-xs font-bold rounded-md transition-colors ${
+                          friendAction === 'CREATE'
+                            ? 'bg-amber-600 text-slate-950 font-black'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        ✨ Nieuwe Code Maken
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setFriendAction('JOIN'); setLobbyError(''); }}
+                        className={`py-1.5 text-xs font-bold rounded-md transition-colors ${
+                          friendAction === 'JOIN'
+                            ? 'bg-amber-600 text-slate-950 font-black'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        🔑 Code Invoeren
+                      </button>
+                    </div>
+
+                    {lobbyError && (
+                      <div className="bg-red-950/90 border border-red-500 text-red-200 text-xs p-2 rounded-lg text-center font-semibold">
+                        {lobbyError}
+                      </div>
+                    )}
+
+                    {friendAction === 'CREATE' ? (
+                      <form onSubmit={handleCreateFriendRoom} className="space-y-3">
+                        <p className="text-[11px] text-slate-300 text-center">
+                          Maak een kamer aan en ontvang direct een <strong>6-cijferige code</strong> om naar je vrienden te sturen!
+                        </p>
+                        <button
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-500 hover:to-red-600 text-white font-black uppercase tracking-wider py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                        >
+                          <Sparkles size={16} />
+                          <span>Kamer Aanmaken & Code Krijgen</span>
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleJoinFriendRoom} className="space-y-3">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase text-amber-300 mb-1 text-center">
+                            Voer de code van je vriend in
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={joinCodeInput}
+                            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                            placeholder="BIJV. WAK842"
+                            className="w-full bg-slate-900 text-amber-300 text-center font-mono font-black text-xl tracking-[0.25em] uppercase rounded-xl px-4 py-2.5 border-2 border-amber-700 focus:outline-none focus:border-amber-400 placeholder-slate-700"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black uppercase tracking-wider py-3 rounded-xl shadow-lg transition-transform active:scale-95"
+                        >
+                          🚪 Deelnemen met Code
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -890,7 +1429,11 @@ export default function App() {
               ))}
             </div>
             <button
-              onClick={() => setHasJoined(false)}
+              onClick={() => {
+                setHasJoined(false);
+                setIsWaitingLobby(false);
+                setRoomCode('');
+              }}
               className="w-full bg-gradient-to-r from-amber-600 to-red-700 hover:from-amber-500 hover:to-red-600 text-white font-black uppercase py-3 rounded-xl shadow-lg"
             >
               Nieuw Potje Spelen
@@ -1021,9 +1564,21 @@ export default function App() {
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
-          <span className="hidden sm:inline-block text-xs font-semibold text-amber-300/80 tracking-wider uppercase bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/50">
-            Weerwolven x Among Us NL
-          </span>
+
+          {playMode === 'FRIENDS' && roomCode ? (
+            <button
+              onClick={copyCodeToClipboard}
+              className="flex items-center gap-1.5 text-xs font-black text-amber-300 tracking-wider uppercase bg-amber-950/90 hover:bg-amber-900 px-3 py-1.5 rounded-full border border-amber-500/70 shadow"
+              title="Klik om kamercode te kopiëren voor vrienden"
+            >
+              <span>Kamer: <span className="font-mono text-white">{roomCode}</span></span>
+              {copiedCode ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+            </button>
+          ) : (
+            <span className="hidden sm:inline-block text-xs font-semibold text-amber-300/80 tracking-wider uppercase bg-amber-950/60 px-3 py-1 rounded-full border border-amber-800/50">
+              AI Modus
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col items-center">
@@ -1064,7 +1619,6 @@ export default function App() {
         
         {/* 1. LEFT SIDEBAR: Presentator & Jouw Geheime Rol + Nachtactie Paneel */}
         <aside className="w-64 flex-shrink-0 flex flex-col gap-3">
-          {/* Presentator Box */}
           <div className="bg-slate-900/90 border-2 border-amber-800/80 rounded-2xl p-3 flex flex-col items-center shadow-2xl relative overflow-hidden">
             <div className="text-[10px] uppercase font-bold tracking-widest text-amber-400 mb-1">
               Presentator
@@ -1096,12 +1650,14 @@ export default function App() {
               </span>
             </div>
 
-            <button
-              onClick={handleNextPhaseManual}
-              className="mt-1.5 w-full bg-amber-900/70 hover:bg-amber-800 border border-amber-600/60 text-amber-200 text-[10px] font-bold py-1 px-2 rounded-lg transition-colors"
-            >
-              {gamePhase === 'DAG' ? '⏭️ Stemming Afronden (Naar Nacht)' : '⏭️ Nacht Afronden (Volgende Dag)'}
-            </button>
+            {(playMode === 'AI' || isHost) && (
+              <button
+                onClick={handleNextPhaseManual}
+                className="mt-1.5 w-full bg-amber-900/70 hover:bg-amber-800 border border-amber-600/60 text-amber-200 text-[10px] font-bold py-1 px-2 rounded-lg transition-colors"
+              >
+                {gamePhase === 'DAG' ? '⏭️ Stemming Afronden (Naar Nacht)' : '⏭️ Nacht Afronden (Volgende Dag)'}
+              </button>
+            )}
           </div>
 
           {/* JOUW GEHEIME ROL & SPECIFIEKE ROL-ACTIES */}
@@ -1125,7 +1681,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* ROL SPECIFIEKE INSTRUCTIE & ACTIE KNOPPEN */}
               <div className="w-full bg-slate-900/95 border border-amber-700/70 rounded-xl p-2 text-[10px] text-slate-200 space-y-1.5">
                 {isPlayerDead && !hunterMustShoot ? (
                   <div className="text-red-400 font-bold text-center">
@@ -1200,6 +1755,7 @@ export default function App() {
               const playerVotes = votes[player.id] || 0;
               const isLover = lovers.includes(player.id);
               const isWolfPrey = wolfTargetId === player.id && (myPlayer?.role === 'Weerwolven' || myPlayer?.role === 'De heks');
+              const isFriendPlayer = playMode === 'FRIENDS' && roomPlayers.some((rp) => rp.slotId === player.id && !isMe);
 
               const canUseRoleActionOnCard =
                 !isDead &&
@@ -1239,6 +1795,8 @@ export default function App() {
                             </span>
                           ) : isMe ? (
                             <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1 rounded">JIJ</span>
+                          ) : isFriendPlayer ? (
+                            <span className="text-[8px] bg-emerald-600 text-white font-bold px-1 rounded">VRIEND</span>
                           ) : null}
                         </div>
                       </div>
@@ -1336,6 +1894,7 @@ export default function App() {
               const playerVotes = votes[player.id] || 0;
               const isLover = lovers.includes(player.id);
               const isWolfPrey = wolfTargetId === player.id && (myPlayer?.role === 'Weerwolven' || myPlayer?.role === 'De heks');
+              const isFriendPlayer = playMode === 'FRIENDS' && roomPlayers.some((rp) => rp.slotId === player.id && !isMe);
 
               const canUseRoleActionOnCard =
                 !isDead &&
@@ -1375,6 +1934,8 @@ export default function App() {
                             </span>
                           ) : isMe ? (
                             <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1 rounded">JIJ</span>
+                          ) : isFriendPlayer ? (
+                            <span className="text-[8px] bg-emerald-600 text-white font-bold px-1 rounded">VRIEND</span>
                           ) : null}
                         </div>
                       </div>
@@ -1502,7 +2063,7 @@ export default function App() {
                 <span>Chat</span>
               </div>
               <span className="text-[10px] bg-amber-900/60 text-amber-300 px-2 py-0.5 rounded border border-amber-700/50">
-                Wakkerdam Kanaal
+                {playMode === 'FRIENDS' && roomCode ? `Kamer ${roomCode}` : 'Wakkerdam Kanaal'}
               </span>
             </div>
 
