@@ -1,0 +1,2651 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Dutch Betrail - Weerwolven Online</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold-light: #fcd34d;
+      --gold-mid: #d97706;
+      --gold-dark: #78350f;
+      --wood-dark: #27150c;
+      --wood-mid: #3f2213;
+      --crimson: #991b1b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #070d1f;
+      color: #fef3c7;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    .font-title {
+      font-family: 'Cinzel Decorative', serif;
+    }
+
+    .font-cinzel {
+      font-family: 'Cinzel', serif;
+    }
+
+    .village-bg {
+      background: radial-gradient(circle at 50% 14%, #1e3a6e 0%, #0d1b3e 45%, #060b19 100%);
+      transition: background 1.5s ease;
+    }
+
+    .village-bg.day-mode {
+      background: radial-gradient(circle at 50% 14%, #4f6d9a 0%, #243b63 48%, #101c36 100%);
+    }
+
+    .ornate-panel {
+      background: linear-gradient(180deg, rgba(44, 24, 14, 0.94) 0%, rgba(25, 13, 8, 0.97) 100%);
+      border: 2px solid #b45309;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(252, 211, 77, 0.35);
+      border-radius: 14px;
+    }
+
+    .title-gradient {
+      background: linear-gradient(180deg, #fde68a 0%, #f59e0b 45%, #dc2626 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.9));
+    }
+
+    .player-card {
+      background: linear-gradient(180deg, #331c10 0%, #1d0f08 100%);
+      border: 2px solid #78350f;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .player-card.clickable:hover {
+      transform: translateY(-3px) scale(1.02);
+      border-color: #fbbf24;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.45);
+      cursor: pointer;
+    }
+
+    .player-card.selected-target {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 22px rgba(239, 68, 68, 0.75) !important;
+      transform: scale(1.03);
+    }
+
+    .player-card.is-me {
+      border-color: #38bdf8;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    }
+
+    .player-card.dead {
+      opacity: 0.58;
+      filter: grayscale(0.85);
+      border-color: #4b5563;
+    }
+
+    .secret-card-back {
+      background: radial-gradient(circle at 30% 25%, #581c87 0%, #2e1065 65%, #170736 100%);
+      border: 2px solid #fbbf24;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7), inset 0 0 8px rgba(251, 191, 36, 0.35);
+    }
+
+    .revealed-card-front {
+      background: linear-gradient(180deg, #451a03 0%, #1c0a00 100%);
+      border: 2px solid #f59e0b;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7);
+    }
+
+    @keyframes flicker {
+      0%, 100% { transform: scale(1) rotate(-1deg); opacity: 0.95; }
+      33% { transform: scale(1.07) rotate(2deg); opacity: 1; }
+      66% { transform: scale(0.95) rotate(-2deg); opacity: 0.88; }
+    }
+
+    .campfire-flame {
+      animation: flicker 1.4s infinite ease-in-out;
+      transform-origin: bottom center;
+    }
+
+    @keyframes wolfBlink {
+      0%, 42%, 48%, 92%, 98%, 100% { transform: scaleY(1); opacity: 0.9; }
+      45%, 95% { transform: scaleY(0.08); opacity: 0.2; }
+    }
+
+    .wolf-eye {
+      animation: wolfBlink 5s infinite;
+    }
+
+    @keyframes pulseUrgent {
+      0%, 100% { transform: scale(1); color: #ef4444; }
+      50% { transform: scale(1.1); color: #fca5a5; }
+    }
+
+    .timer-urgent {
+      animation: pulseUrgent 0.8s infinite;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 10, 5, 0.5); border-radius: 6px; }
+    ::-webkit-scrollbar-thumb { background: #92400e; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #d97706; }
+  </style>
+</head>
+<body class="village-bg min-h-screen flex flex-col justify-between relative overflow-x-hidden">
+
+  <!-- ACHTERGROND ILLUSTRATIE (Sterren, Maan, Molen & Dorp) -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" class="w-full h-full opacity-80">
+      <defs>
+        <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fef9c3" stop-opacity="0.95"/>
+          <stop offset="45%" stop-color="#fde047" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#fde047" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="canalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#0f294a"/>
+          <stop offset="100%" stop-color="#061224"/>
+        </linearGradient>
+      </defs>
+
+      <g fill="#fef3c7" opacity="0.75">
+        <circle cx="140" cy="90" r="2"/><circle cx="260" cy="150" r="1.5"/><circle cx="390" cy="70" r="2.2"/>
+        <circle cx="520" cy="130" r="1.5"/><circle cx="1080" cy="85" r="2"/><circle cx="1210" cy="145" r="1.8"/>
+        <circle cx="1370" cy="75" r="2.5"/><circle cx="1490" cy="160" r="1.5"/><circle cx="640" cy="60" r="1.8"/>
+        <circle cx="960" cy="110" r="2"/><circle cx="190" cy="240" r="1.4"/><circle cx="1420" cy="230" r="1.6"/>
+      </g>
+
+      <circle cx="800" cy="115" r="150" fill="url(#moonGlow)"/>
+      <circle cx="800" cy="115" r="68" fill="#fef3c7" opacity="0.92"/>
+
+      <path d="M670 185 Q800 140 930 185 Z" fill="#0b132b"/>
+      <polygon points="772,175 784,115 796,115 808,175" fill="#0b132b"/>
+      <g stroke="#0b132b" stroke-width="4" stroke-linecap="round">
+        <line x1="752" y1="85" x2="828" y2="155"/>
+        <line x1="828" y1="85" x2="752" y2="155"/>
+      </g>
+      <path d="M830 172 L836 155 L843 145 L847 137 L851 144 L856 156 L863 172 Z" fill="#0b132b"/>
+
+      <g fill="#091124" stroke="#1e293b" stroke-width="2">
+        <polygon points="0,420 110,330 220,420 220,900 0,900"/>
+        <polygon points="180,470 270,390 360,470 360,900 180,900"/>
+        <polygon points="1240,460 1340,375 1440,460 1440,900 1240,900"/>
+        <polygon points="1390,410 1500,320 1600,410 1600,900 1390,900"/>
+      </g>
+
+      <g fill="#f59e0b" opacity="0.55">
+        <rect x="65" y="450" width="24" height="34" rx="3"/>
+        <rect x="125" y="450" width="24" height="34" rx="3"/>
+        <rect x="245" y="500" width="22" height="30" rx="3"/>
+        <rect x="1315" y="490" width="24" height="34" rx="3"/>
+        <rect x="1465" y="445" width="26" height="36" rx="3"/>
+      </g>
+
+      <rect x="0" y="760" width="1600" height="140" fill="url(#canalGrad)" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <!-- BOVENSTE HEADER MET TITEL EN RONDE/TIMER HUD -->
+  <header class="relative z-20 w-full max-w-[1540px] mx-auto px-3 pt-2 pb-1 flex flex-col md:flex-row items-center justify-between gap-2">
+    <div class="flex items-center gap-2 order-2 md:order-1">
+      <button id="btn-sound" type="button" class="ornate-panel px-3 py-1.5 text-xs font-bold text-amber-200 hover:border-amber-400 transition flex items-center gap-1.5 cursor-pointer">
+        <span id="sound-icon">🔊</span> <span id="sound-label">Geluid Aan</span>
+      </button>
+      <button id="btn-roles-info" type="button" class="ornate-panel px-3 py-1.5 text-xs font-bold text-amber-200 hover:border-amber-400 transition flex items-center gap-1.5 cursor-pointer">
+        <span>📜</span> <span>Alle 14 Rollen</span>
+      </button>
+    </div>
+
+    <div class="text-center order-1 md:order-2">
+      <div class="text-xs font-cinzel tracking-[0.25em] text-amber-300 uppercase font-bold leading-none">The</div>
+      <h1 class="font-title text-2xl sm:text-3xl lg:text-4xl font-black title-gradient tracking-wider leading-tight">
+        DUTCH BETRAIL
+      </h1>
+      <div class="text-[11px] sm:text-xs text-amber-200/90 font-medium -mt-1">
+        after <span class="font-bold text-amber-300">Weerwolven van Wakkerdam</span>
+      </div>
+    </div>
+
+    <div class="ornate-panel px-4 py-2 min-w-[230px] order-3">
+      <div class="flex items-center justify-between text-xs sm:text-sm font-bold text-amber-200">
+        <span>⏳ Ronde <span id="hud-round" class="text-amber-400">1</span></span>
+        <span>👥 Levend: <span id="hud-alive" class="text-emerald-400">14/14</span></span>
+      </div>
+      <div class="mt-1 flex items-center justify-between text-xs font-bold">
+        <span class="text-amber-100/80">Tijd over:</span>
+        <span id="hud-timer" class="font-mono text-sm text-amber-300">00:00</span>
+      </div>
+      <div class="w-full h-2 bg-black/70 rounded-full overflow-hidden mt-1 border border-amber-900/80">
+        <div id="hud-timer-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-300" style="width: 100%;"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOOFDSCHERM: LINKS PRESENTATOR | MIDDEN 14-SPELER BORD + KAMPVUUR | RECHTS LOG & CHAT -->
+  <main class="relative z-10 w-full max-w-[1540px] mx-auto px-3 py-2 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+
+    <!-- LINKERKOLOM: PRESENTATOR MARTIJN GERITSEN + EIGEN ROLKAART -->
+    <aside class="lg:col-span-2 flex flex-col gap-3 justify-between">
+      <div class="ornate-panel p-3 flex flex-col items-center text-center">
+        <div class="text-[11px] uppercase tracking-wider text-amber-300/80 font-semibold">Presentator</div>
+        <div class="text-sm font-bold text-amber-100 mb-2">Martijn Geritsen</div>
+
+        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-2 border-amber-500 bg-gradient-to-b from-sky-900 to-slate-900 overflow-hidden shadow-lg relative flex items-center justify-center">
+          <svg viewBox="0 0 120 120" class="w-full h-full">
+            <path d="M22 120 C24 92, 42 84, 60 84 C78 84, 96 92, 98 120 Z" fill="#1e3a8a"/>
+            <polygon points="60,84 48,120 72,120" fill="#f8fafc"/>
+            <polygon points="60,88 55,112 60,118 65,112" fill="#b91c1c"/>
+            <rect x="51" y="68" width="18" height="18" rx="6" fill="#fed7aa"/>
+            <ellipse cx="60" cy="52" rx="21" ry="25" fill="#fed7aa"/>
+            <path d="M39 46 C38 24, 82 22, 81 46 C77 34, 66 32, 56 34 C46 36, 42 40, 39 46 Z" fill="#451a03"/>
+            <circle cx="52" cy="50" r="2.5" fill="#1e293b"/>
+            <circle cx="68" cy="50" r="2.5" fill="#1e293b"/>
+            <path d="M51 60 Q60 69 69 60" stroke="#7c2d12" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <rect x="76" y="76" width="6" height="24" rx="2" transform="rotate(-22 76 76)" fill="#334155"/>
+            <circle cx="74" cy="72" r="7" fill="#94a3b8" stroke="#cbd5e1" stroke-width="1.5"/>
+          </svg>
+        </div>
+
+        <div class="mt-2.5 w-full bg-gradient-to-r from-red-900 via-red-700 to-red-900 border border-amber-400/70 rounded-lg py-1.5 px-2 shadow-md">
+          <div id="phase-badge-title" class="text-xs sm:text-sm font-extrabold text-amber-100 uppercase tracking-wide">
+            WACHTEN OP START
+          </div>
+          <div id="phase-badge-sub" class="text-[11px] text-amber-200/90">
+            Vul je naam in om te spelen
+          </div>
+        </div>
+
+        <div id="host-speech" class="mt-2.5 text-xs italic text-amber-100/90 bg-black/40 border border-amber-900/60 rounded-lg p-2 leading-snug">
+          "Welkom in Wakkerdam! Wie spreekt de waarheid en wie pleegt verraad in de nacht?"
+        </div>
+      </div>
+
+      <div class="ornate-panel p-3 flex flex-col items-center text-center">
+        <div class="text-[11px] uppercase tracking-wider text-sky-300 font-bold mb-1">Jouw Geheime Rol</div>
+        <div id="my-role-card" class="w-full bg-black/45 border border-amber-600/60 rounded-xl p-2.5 flex flex-col items-center">
+          <div id="my-role-icon" class="text-3xl mb-1">❓</div>
+          <div id="my-role-name" class="text-sm font-extrabold text-amber-300">Nog onbekend</div>
+          <div id="my-role-team" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-950 text-amber-200 mt-1">Team: ?</div>
+          <p id="my-role-desc" class="text-[11px] text-amber-100/80 mt-1.5 leading-snug">
+            Start het spel om je geheime rol te ontvangen.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MIDDENKOLOM: 14 SPELERS BORD + KAMPVUUR & ACTIEBALK -->
+    <section class="lg:col-span-7 flex flex-col justify-between gap-2">
+      <div id="players-grid" class="ornate-panel p-2.5 sm:p-3 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
+        <!-- Wordt dynamisch gevuld door JS -->
+      </div>
+
+      <div class="ornate-panel p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-14 h-14 rounded-full bg-amber-950/80 border border-amber-500/60 flex items-center justify-center shrink-0 shadow-inner">
+            <svg viewBox="0 0 64 64" class="w-11 h-11">
+              <rect x="14" y="46" width="36" height="7" rx="3" transform="rotate(14 32 49)" fill="#78350f"/>
+              <rect x="14" y="46" width="36" height="7" rx="3" transform="rotate(-14 32 49)" fill="#92400e"/>
+              <path class="campfire-flame" d="M32 10 C42 22, 48 32, 42 44 C38 49, 26 49, 22 44 C16 32, 22 22, 32 10 Z" fill="#f97316"/>
+              <path class="campfire-flame" d="M32 18 C38 26, 41 34, 37 42 C34 45, 30 45, 27 42 C23 34, 26 26, 32 18 Z" fill="#facc15"/>
+            </svg>
+          </div>
+          <div>
+            <div id="action-prompt-title" class="text-sm sm:text-base font-extrabold text-amber-300">
+              Klaar voor het avontuur?
+            </div>
+            <div id="action-prompt-desc" class="text-xs text-amber-100/85">
+              Kies solo tegen AI of maak een kamercode aan om met vrienden te spelen.
+            </div>
+          </div>
+        </div>
+
+        <div id="action-buttons-box" class="flex flex-wrap items-center justify-center gap-2 shrink-0">
+          <!-- Actieknoppen worden hier geplaatst per fase -->
+        </div>
+      </div>
+    </section>
+
+    <!-- RECHTERKOLOM: GEBEURTENISSEN & DORPSPLEIN CHAT -->
+    <aside class="lg:col-span-3 flex flex-col gap-3 justify-between">
+      <div class="ornate-panel p-3 flex flex-col h-44 lg:h-48">
+        <div class="flex items-center justify-between border-b border-amber-800/70 pb-1.5 mb-2">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-amber-300">📜 Gebeurtenissen</span>
+          <span id="room-badge-hud" class="text-[10px] font-mono text-amber-200/70">Wakkerdam</span>
+        </div>
+        <div id="event-log" class="flex-1 overflow-y-auto space-y-1.5 text-xs pr-1">
+          <!-- Gebeurtenissen -->
+        </div>
+      </div>
+
+      <div class="ornate-panel p-3 flex flex-col flex-1 min-h-[260px]">
+        <div class="flex items-center justify-between border-b border-amber-800/70 pb-1.5 mb-2">
+          <span id="chat-header-title" class="text-xs font-extrabold uppercase tracking-wider text-amber-300">💬 Dorpsplein Chat</span>
+          <span id="chat-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 font-bold">Gesloten</span>
+        </div>
+
+        <div id="chat-messages" class="flex-1 overflow-y-auto space-y-1.5 text-xs pr-1 mb-2 max-h-[260px]">
+          <!-- Chatberichten -->
+        </div>
+
+        <form id="chat-form" class="flex gap-1.5 mt-auto">
+          <input
+            id="chat-input"
+            type="text"
+            maxlength="140"
+            placeholder="Typ een bericht..."
+            disabled
+            class="flex-1 bg-black/60 border border-amber-700/80 rounded-lg px-2.5 py-1.5 text-xs text-amber-50 placeholder-amber-200/40 focus:outline-none focus:border-amber-400 disabled:opacity-40"
+          />
+          <button
+            id="chat-send-btn"
+            type="submit"
+            disabled
+            class="bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-amber-950 font-extrabold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+          >
+            Stuur
+          </button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <!-- DIEPE DUISTERNIS NACHTSLUIER (ALS JIJ 'S NACHTS NIET AAN DE BEURT BENT) -->
+  <div id="night-veil" class="fixed inset-0 z-40 hidden flex-col items-center justify-center bg-black/95 backdrop-blur-md px-4 text-center transition-opacity duration-700">
+    <div class="flex items-center gap-12 mb-6">
+      <div class="wolf-eye w-7 h-3.5 bg-amber-400 rounded-full shadow-[0_0_25px_#f59e0b]"></div>
+      <div class="wolf-eye w-7 h-3.5 bg-amber-400 rounded-full shadow-[0_0_25px_#f59e0b]"></div>
+    </div>
+
+    <div class="text-xs font-cinzel tracking-[0.3em] text-amber-400/80 uppercase font-bold mb-2">
+      De Nacht Valt Over Wakkerdam
+    </div>
+    <h2 id="veil-title" class="font-title text-2xl sm:text-4xl text-amber-200 font-black mb-3">
+      Sluit je ogen...
+    </h2>
+    <p id="veil-story" class="max-w-lg text-sm sm:text-base text-amber-100/85 leading-relaxed mb-6">
+      In het pikkedonker sluipen schaduwen langs de grachten. Je hoort gefluister, maar je kunt niets zien...
+    </p>
+
+    <div class="ornate-panel px-6 py-3 flex flex-col items-center gap-2">
+      <div class="text-xs text-amber-300 font-bold uppercase tracking-wider">
+        Nachtfase duurt nog: <span id="veil-timer" class="font-mono text-base text-white">15s</span>
+      </div>
+      <button id="btn-skip-veil" type="button" class="mt-1 bg-amber-800/80 hover:bg-amber-700 text-amber-100 text-xs font-bold px-4 py-1.5 rounded-lg border border-amber-500/60 cursor-pointer transition">
+        ⏭️ Sla wachttijd over
+      </button>
+    </div>
+  </div>
+
+  <!-- START OVERLAY (KEUZE TUSSEN AI-KARAKTERS EN VRIENDEN-LOBBY MET KAMERCODE) -->
+  <div id="start-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="ornate-panel max-w-lg w-full p-5 sm:p-6 text-center relative">
+      <div class="text-xs font-cinzel tracking-[0.25em] text-amber-400 uppercase font-bold">The</div>
+      <h2 class="font-title text-3xl sm:text-4xl font-black title-gradient mb-1">DUTCH BETRAIL</h2>
+      <p class="text-xs text-amber-200/80 mb-4">after Weerwolven van Wakkerdam • 14 Unieke Nederlandse Rollen</p>
+
+      <div class="bg-black/45 border border-amber-800/70 rounded-xl p-3.5 mb-3 text-left">
+        <label for="username-input" class="block text-xs font-bold uppercase tracking-wider text-amber-300 mb-1">
+          Jouw spelersnaam (Username)
+        </label>
+        <input
+          id="username-input"
+          type="text"
+          maxlength="16"
+          value="Jij_Speler"
+          placeholder="Bijv. Daan_NL"
+          class="w-full bg-black/70 border-2 border-amber-600 focus:border-amber-300 focus:outline-none rounded-lg px-3 py-2 text-sm font-bold text-amber-50"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mb-4 bg-black/50 p-1 rounded-xl border border-amber-800/70">
+        <button id="tab-mode-ai" type="button" class="py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 shadow cursor-pointer transition">
+          🤖 Met AI-karakters
+        </button>
+        <button id="tab-mode-friends" type="button" class="py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide text-amber-200 hover:bg-amber-950/70 cursor-pointer transition">
+          👥 Met vrienden
+        </button>
+      </div>
+
+      <!-- TAB 1: AI-MODUS -->
+      <div id="panel-mode-ai">
+        <p class="text-xs text-amber-200/80 mb-4 bg-black/40 border border-amber-900/60 rounded-lg p-2.5">
+          🎭 Speel direct alleen tegen 13 slimme Nederlandse AI-karakters. Je krijgt automatisch een geheime rol!
+        </p>
+        <button id="btn-start-game" type="button" class="w-full py-3 rounded-xl font-extrabold text-base uppercase tracking-wider text-amber-950 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-600 hover:from-amber-200 hover:to-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.5)] cursor-pointer transition transform hover:scale-[1.02]">
+          🔥 START AI SPEL
+        </button>
+      </div>
+
+      <!-- TAB 2: VRIENDEN MULTIPLAYER MODUS -->
+      <div id="panel-mode-friends" class="hidden text-left space-y-3">
+        <div class="bg-black/45 border border-amber-700/70 rounded-xl p-3">
+          <div class="text-xs font-extrabold text-amber-300 uppercase mb-1">1. Nieuwe kamer aanmaken</div>
+          <p class="text-[11px] text-amber-100/75 mb-2.5">
+            Maak een privé-kamer aan en stuur de 6-karakter code naar je vrienden.
+          </p>
+          <button id="btn-create-room" type="button" class="w-full py-2.5 rounded-lg font-extrabold text-xs uppercase tracking-wider text-amber-950 bg-gradient-to-b from-emerald-300 to-emerald-500 hover:from-emerald-200 hover:to-emerald-400 shadow cursor-pointer transition">
+            ✨ Maak kamercode aan
+          </button>
+        </div>
+
+        <div class="bg-black/45 border border-amber-700/70 rounded-xl p-3">
+          <div class="text-xs font-extrabold text-amber-300 uppercase mb-1">2. Heb je een code van een vriend?</div>
+          <div class="flex gap-2 mt-1.5">
+            <input
+              id="join-code-input"
+              type="text"
+              maxlength="6"
+              placeholder="BIJV. TULP84"
+              class="flex-1 uppercase font-mono tracking-[0.2em] text-center bg-black/75 border-2 border-amber-600 focus:border-amber-300 focus:outline-none rounded-lg px-3 py-2 text-sm font-black text-amber-200 placeholder-amber-200/30"
+            />
+            <button id="btn-join-room" type="button" class="px-4 py-2 rounded-lg font-extrabold text-xs uppercase tracking-wider text-amber-950 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 shadow cursor-pointer transition shrink-0">
+              🚪 Join kamer
+            </button>
+          </div>
+          <div id="friends-status-msg" class="text-[11px] text-red-300 font-semibold mt-1.5 min-h-[16px]"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE VRIENDEN WACHTKAMER / LOBBY MODAL -->
+  <div id="friends-lobby-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="ornate-panel max-w-lg w-full p-5 sm:p-6 text-center">
+      <div class="text-xs uppercase tracking-widest text-emerald-300 font-bold">Multiplayer Wachtkamer</div>
+      <h3 class="font-title text-2xl font-black text-amber-300 mt-0.5">Deel deze code met je vrienden</h3>
+
+      <div class="my-3 bg-black/65 border-2 border-amber-500 rounded-xl p-3 flex items-center justify-between gap-2">
+        <div class="text-left">
+          <div class="text-[10px] uppercase tracking-wider text-amber-200/70">Kamercode</div>
+          <div id="lobby-room-code" class="font-mono text-2xl sm:text-3xl font-black tracking-[0.25em] text-amber-300">
+            ------
+          </div>
+        </div>
+        <button id="btn-copy-code" type="button" class="bg-amber-500 hover:bg-amber-400 text-amber-950 font-extrabold text-xs px-3.5 py-2.5 rounded-lg shadow cursor-pointer transition flex items-center gap-1.5">
+          <span>📋</span> <span id="copy-code-label">Kopieer code</span>
+        </button>
+      </div>
+
+      <div class="text-left mb-3">
+        <div class="flex items-center justify-between text-xs font-bold text-amber-200 mb-1.5">
+          <span>👥 Spelers in deze kamer:</span>
+          <span id="lobby-player-count" class="text-emerald-400">1 / 14</span>
+        </div>
+        <div id="lobby-players-list" class="max-h-44 overflow-y-auto bg-black/45 border border-amber-800/70 rounded-xl p-2 space-y-1.5 text-xs">
+          <!-- Live spelers worden hier getoond -->
+        </div>
+      </div>
+
+      <div id="lobby-host-controls" class="space-y-2.5">
+        <label class="flex items-center justify-center gap-2 text-xs text-amber-100/90 bg-black/40 border border-amber-800/60 rounded-lg p-2 cursor-pointer">
+          <input id="chk-fill-bots" type="checkbox" checked class="accent-amber-500 w-4 h-4" />
+          <span>Vul lege plekken aan met AI-karakters tot 14 spelers</span>
+        </label>
+
+        <button id="btn-start-friends-game" type="button" class="w-full py-3 rounded-xl font-extrabold text-sm uppercase tracking-wider text-amber-950 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-600 hover:from-amber-200 hover:to-amber-500 shadow-lg cursor-pointer transition">
+          🔥 START VRIENDENSPEL
+        </button>
+      </div>
+
+      <div id="lobby-guest-wait" class="hidden text-xs text-amber-200 italic bg-black/45 border border-amber-800/60 rounded-lg p-3">
+        ⏳ Wachten tot de host het spel start...
+      </div>
+
+      <button id="btn-leave-lobby" type="button" class="mt-3 text-xs text-amber-300/80 hover:text-amber-200 underline cursor-pointer">
+        ← Terug naar hoofdmenu
+      </button>
+    </div>
+  </div>
+
+  <!-- GEHEIME ROL ONTHULLING MODAL -->
+  <div id="role-reveal-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="ornate-panel max-w-md w-full p-6 text-center">
+      <div class="text-xs uppercase tracking-widest text-amber-300 font-bold mb-1">Jouw Geheime Identiteit</div>
+      <div id="reveal-icon" class="text-6xl my-3">🐺</div>
+      <h3 id="reveal-name" class="font-title text-2xl font-black text-amber-300">De zwarte tulp</h3>
+      <div id="reveal-subtitle" class="text-xs font-bold text-amber-200/90 uppercase tracking-wider mt-0.5">(Weerwolf)</div>
+      <div id="reveal-team-badge" class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-extrabold bg-red-950 text-red-300 border border-red-600">
+        Team Weerwolven
+      </div>
+      <p id="reveal-desc" class="text-xs sm:text-sm text-amber-100/90 bg-black/45 border border-amber-800/60 rounded-xl p-3.5 mt-4 leading-relaxed">
+        Uitleg over je rol...
+      </p>
+      <div id="reveal-extra" class="text-xs text-amber-300 font-semibold mt-3"></div>
+      <button id="btn-confirm-role" type="button" class="mt-5 w-full py-2.5 rounded-xl font-extrabold text-sm uppercase tracking-wider text-amber-950 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 cursor-pointer">
+        ✅ Ik heb mijn rol begrepen
+      </button>
+    </div>
+  </div>
+
+  <!-- ALLE 14 ROLLEN OVERZICHT MODAL -->
+  <div id="roles-info-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+    <div class="ornate-panel max-w-3xl w-full max-h-[85vh] flex flex-col p-5">
+      <div class="flex items-center justify-between border-b border-amber-800 pb-2 mb-3">
+        <h3 class="font-title text-xl text-amber-300 font-bold">📜 Alle 14 Rollen in The Dutch Betrail</h3>
+        <button id="btn-close-roles-info" type="button" class="text-amber-300 hover:text-white font-bold text-lg px-2 cursor-pointer">✕</button>
+      </div>
+      <div id="roles-info-list" class="overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5 pr-1 text-xs">
+        <!-- Gevuld via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div id="gameover-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/90 backdrop-blur-md p-4">
+    <div class="ornate-panel max-w-xl w-full p-6 text-center max-h-[90vh] flex flex-col">
+      <div id="gameover-icon" class="text-6xl mb-2">🏆</div>
+      <h2 id="gameover-title" class="font-title text-2xl sm:text-3xl font-black text-amber-300">Het Dorp Wint!</h2>
+      <p id="gameover-desc" class="text-xs sm:text-sm text-amber-100/90 mt-2 mb-4">
+        Alle weerwolven zijn verslagen!
+      </p>
+      <div class="text-left text-xs font-bold uppercase text-amber-300 mb-1.5">Onthulling van alle rollen:</div>
+      <div id="gameover-roles-summary" class="overflow-y-auto bg-black/50 border border-amber-800/70 rounded-xl p-3 space-y-1 text-left text-xs mb-4 flex-1">
+        <!-- Overzicht rollen -->
+      </div>
+      <button id="btn-restart-game" type="button" class="w-full py-3 rounded-xl font-extrabold text-sm uppercase tracking-wider text-amber-950 bg-gradient-to-b from-amber-300 to-amber-500 hover:from-amber-200 hover:to-amber-400 cursor-pointer">
+        🔄 Nieuw Potje Spelen
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // ==========================================
+    // 0. FIREBASE MULTIPLAYER CONFIGURATIE
+    // ==========================================
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'dutch-betrail-default';
+    let db = null;
+    let auth = null;
+    let fbUser = null;
+    let roomUnsubscribe = null;
+
+    async function ensureFirebaseAuth() {
+      if (fbUser && db) return fbUser;
+      if (typeof __firebase_config === 'undefined') {
+        throw new Error('Online multiplayer-server is momenteel niet beschikbaar in deze preview.');
+      }
+      const firebaseConfig = JSON.parse(__firebase_config);
+      const app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        const cred = await signInWithCustomToken(auth, __initial_auth_token);
+        fbUser = cred.user;
+      } else {
+        const cred = await signInAnonymously(auth);
+        fbUser = cred.user;
+      }
+      return fbUser;
+    }
+
+    function getRoomDocRef(code) {
+      return doc(db, 'artifacts', appId, 'public', 'data', 'dutch_betrail_rooms', code);
+    }
+
+    function generateRoomCode() {
+      const words = ['TULP', 'WOLF', 'MAAN', 'KAAS', 'MOLN', 'KLMP', 'GOUD', 'VOSJ'];
+      const prefix = words[Math.floor(Math.random() * words.length)];
+      const num = Math.floor(10 + Math.random() * 89);
+      return `${prefix}${num}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // ==========================================
+      // 1. ALLE 14 NEDERLANDSE ROLLEN & KARAKTERS
+      // ==========================================
+      const ROLES = {
+        WOLF: {
+          id: 'WOLF',
+          name: 'De zwarte tulp',
+          subtitle: 'Weerwolf',
+          icon: '🐺',
+          teamLabel: 'Team Weerwolven',
+          desc: 'Sluip elke nacht samen met je mede-wolf door Wakkerdam en verslind een dorpsbewoner.'
+        },
+        BURGEMEESTER: {
+          id: 'BURGEMEESTER',
+          name: 'Willempie',
+          subtitle: 'Burgemeester',
+          icon: '🎖️',
+          teamLabel: 'Team Dorp',
+          desc: 'Jouw stem telt overdag altijd dubbel (2 stemmen) tijdens de dorpsstemming!'
+        },
+        SPIEKEND_MEISJE: {
+          id: 'SPIEKEND_MEISJE',
+          name: 'Annie Frankie',
+          subtitle: 'Spiekende meisje',
+          icon: '👁️',
+          teamLabel: 'Team Dorp',
+          desc: 'Je mag ’s nachts stiekem door een kier gluren om een aanwijzing over de weerwolven op te vangen.'
+        },
+        HEKS: {
+          id: 'HEKS',
+          name: 'Nicolle Instructie',
+          subtitle: 'De heks',
+          icon: '🧪',
+          teamLabel: 'Team Dorp',
+          desc: 'Je bezit één levensdrankje om het nachtelijke slachtoffer te redden en één doodsdrankje.'
+        },
+        CUPIDO: {
+          id: 'CUPIDO',
+          name: 'Elsa de Tall',
+          subtitle: 'Cupido',
+          icon: '💘',
+          teamLabel: 'Team Dorp',
+          desc: 'Verbind op de eerste nacht twee spelers met elkaar; sterft de één, dan sterft de ander van liefdesverdriet.'
+        },
+        DIEF: {
+          id: 'DIEF',
+          name: 'De belastingdienst',
+          subtitle: 'Dief',
+          icon: '💼',
+          teamLabel: 'Team Dorp',
+          desc: 'Je kunt op de eerste nacht de geheime rol van een andere speler overnemen!'
+        },
+        ZIENER: {
+          id: 'ZIENER',
+          name: 'Dun',
+          subtitle: 'Ziener',
+          icon: '🔮',
+          teamLabel: 'Team Dorp',
+          desc: 'Elke nacht mag je in je glazen bol kijken om de echte geheime rol van één speler te ontdekken.'
+        },
+        JAGER: {
+          id: 'JAGER',
+          name: 'Virgil van Dam',
+          subtitle: 'Jager',
+          icon: '🎯',
+          teamLabel: 'Team Dorp',
+          desc: 'Word je uitgeschakeld? Dan mag je met je laatste adem nog één speler neerschieten!'
+        },
+        BESCHERMENGEL: {
+          id: 'BESCHERMENGEL',
+          name: 'Max Verlopen',
+          subtitle: 'Beschermengel',
+          icon: '🛡️',
+          teamLabel: 'Team Dorp',
+          desc: 'Bescherm elke nacht één speler tegen aanvallen van de weerwolven (niet 2x achter elkaar dezelfde).'
+        },
+        FLUITSPELER: {
+          id: 'FLUITSPELER',
+          name: 'André Real',
+          subtitle: 'Fluitspeler',
+          icon: '🪈',
+          teamLabel: 'Solo Winnaar',
+          desc: 'Betover elke nacht tot 2 spelers. Zodra alle levende spelers betoverd zijn, win jij alleen!'
+        },
+        DORPSGEK: {
+          id: 'DORPSGEK',
+          name: 'Joost Groot',
+          subtitle: 'Dorpsgek',
+          icon: '🃏',
+          teamLabel: 'Solo Winnaar',
+          desc: 'Jouw enige doel is om overdag door het dorp weggestemd te worden — dan win jij direct!'
+        },
+        VOS: {
+          id: 'VOS',
+          name: 'Judith van Leer',
+          subtitle: 'Vos',
+          icon: '🦊',
+          teamLabel: 'Team Dorp',
+          desc: 'Besnuffel een speler om te ruiken of diegene of zijn directe buren een weerwolf zijn.'
+        },
+        RECHTER: {
+          id: 'RECHTER',
+          name: 'Mart Ruiter',
+          subtitle: 'Rechter',
+          icon: '⚖️',
+          teamLabel: 'Team Dorp',
+          desc: 'Eenmaal per spel mag je tijdens de stemming gratie verlenen zodat niemand wordt geëlimineerd.'
+        },
+        BURGER: {
+          id: 'BURGER',
+          name: 'Hamburger',
+          subtitle: 'Burger',
+          icon: '🍔',
+          teamLabel: 'Team Dorp',
+          desc: 'Je hebt geen speciale nachtkracht, maar jouw scherpe blik en stem overdag zijn onmisbaar!'
+        }
+      };
+
+      const BOT_USERNAMES = [
+        'Luna_Wolf', 'Casper_12', 'Evi_D', 'Jeroen_B', 'Sara_G',
+        'Ben_K', 'Tariq_Z', 'Sophie_P', 'Maya_V', 'Daan_M',
+        'Noor_L', 'Bram_S', 'Lotte_W'
+      ];
+
+      // ==========================================
+      // 2. GELUIDSEFFECTEN (WEB AUDIO API)
+      // ==========================================
+      let soundEnabled = true;
+      let audioCtx = null;
+
+      function playSfx(type) {
+        if (!soundEnabled) return;
+        try {
+          if (!audioCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx) audioCtx = new Ctx();
+          }
+          if (!audioCtx) return;
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          if (type === 'tick') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(760, now);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+            osc.start(now);
+            osc.stop(now + 0.08);
+          } else if (type === 'night') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, now);
+            osc.frequency.exponentialRampToValueAtTime(110, now + 0.7);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+            osc.start(now);
+            osc.stop(now + 0.75);
+          } else if (type === 'morning') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(330, now);
+            osc.frequency.exponentialRampToValueAtTime(554, now + 0.5);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            osc.start(now);
+            osc.stop(now + 0.55);
+          } else if (type === 'vote') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            gain.gain.setValueAtTime(0.06, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            osc.start(now);
+            osc.stop(now + 0.12);
+          } else if (type === 'eliminated') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, now);
+            osc.frequency.exponentialRampToValueAtTime(65, now + 0.6);
+            gain.gain.setValueAtTime(0.09, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+            osc.start(now);
+            osc.stop(now + 0.65);
+          } else if (type === 'chat') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(620, now);
+            gain.gain.setValueAtTime(0.025, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+          }
+        } catch (e) {
+          // Negeer als browser audio blokkeert
+        }
+      }
+
+      // ==========================================
+      // 3. CENTRALE GAME STATE & MACHINE
+      // ==========================================
+      const state = {
+        mode: 'AI', // 'AI' of 'FRIENDS'
+        roomCode: null,
+        isHost: true,
+        myUid: 'local-human',
+        phase: 'LOBBY',
+        round: 1,
+        timer: 0,
+        maxTimer: 1,
+        players: [],
+        myId: 0,
+        revealedToMe: new Set(),
+        lovers: [],
+        protectedId: null,
+        lastProtectedId: null,
+        wolfTargetId: null,
+        witchHealUsed: false,
+        witchPoisonUsed: false,
+        witchPoisonTargetId: null,
+        judgePardonUsed: false,
+        judgePardonActive: false,
+        selectedTargetId: null,
+        votes: {},
+        pendingHunterId: null,
+        afterHunterPhase: null,
+        morningSummary: '',
+        chatLog: [],
+        eventItems: [],
+        lastRenderedLogLen: 0,
+        lastRenderedChatLen: 0,
+        tickInterval: null,
+        aiChatCooldown: 0
+      };
+
+      // ==========================================
+      // 4. DOM REFERENTIES
+      // ==========================================
+      const dom = {
+        body: document.body,
+        hudRound: document.getElementById('hud-round'),
+        hudAlive: document.getElementById('hud-alive'),
+        hudTimer: document.getElementById('hud-timer'),
+        hudTimerBar: document.getElementById('hud-timer-bar'),
+        roomBadgeHud: document.getElementById('room-badge-hud'),
+        phaseBadgeTitle: document.getElementById('phase-badge-title'),
+        phaseBadgeSub: document.getElementById('phase-badge-sub'),
+        hostSpeech: document.getElementById('host-speech'),
+        myRoleIcon: document.getElementById('my-role-icon'),
+        myRoleName: document.getElementById('my-role-name'),
+        myRoleTeam: document.getElementById('my-role-team'),
+        myRoleDesc: document.getElementById('my-role-desc'),
+        playersGrid: document.getElementById('players-grid'),
+        actionPromptTitle: document.getElementById('action-prompt-title'),
+        actionPromptDesc: document.getElementById('action-prompt-desc'),
+        actionButtonsBox: document.getElementById('action-buttons-box'),
+        eventLog: document.getElementById('event-log'),
+        chatHeaderTitle: document.getElementById('chat-header-title'),
+        chatStatusPill: document.getElementById('chat-status-pill'),
+        chatMessages: document.getElementById('chat-messages'),
+        chatForm: document.getElementById('chat-form'),
+        chatInput: document.getElementById('chat-input'),
+        chatSendBtn: document.getElementById('chat-send-btn'),
+        nightVeil: document.getElementById('night-veil'),
+        veilTitle: document.getElementById('veil-title'),
+        veilStory: document.getElementById('veil-story'),
+        veilTimer: document.getElementById('veil-timer'),
+        btnSkipVeil: document.getElementById('btn-skip-veil'),
+        startModal: document.getElementById('start-modal'),
+        usernameInput: document.getElementById('username-input'),
+        tabModeAi: document.getElementById('tab-mode-ai'),
+        tabModeFriends: document.getElementById('tab-mode-friends'),
+        panelModeAi: document.getElementById('panel-mode-ai'),
+        panelModeFriends: document.getElementById('panel-mode-friends'),
+        btnStartGame: document.getElementById('btn-start-game'),
+        btnCreateRoom: document.getElementById('btn-create-room'),
+        joinCodeInput: document.getElementById('join-code-input'),
+        btnJoinRoom: document.getElementById('btn-join-room'),
+        friendsStatusMsg: document.getElementById('friends-status-msg'),
+        friendsLobbyModal: document.getElementById('friends-lobby-modal'),
+        lobbyRoomCode: document.getElementById('lobby-room-code'),
+        btnCopyCode: document.getElementById('btn-copy-code'),
+        copyCodeLabel: document.getElementById('copy-code-label'),
+        lobbyPlayerCount: document.getElementById('lobby-player-count'),
+        lobbyPlayersList: document.getElementById('lobby-players-list'),
+        lobbyHostControls: document.getElementById('lobby-host-controls'),
+        chkFillBots: document.getElementById('chk-fill-bots'),
+        btnStartFriendsGame: document.getElementById('btn-start-friends-game'),
+        lobbyGuestWait: document.getElementById('lobby-guest-wait'),
+        btnLeaveLobby: document.getElementById('btn-leave-lobby'),
+        roleRevealModal: document.getElementById('role-reveal-modal'),
+        revealIcon: document.getElementById('reveal-icon'),
+        revealName: document.getElementById('reveal-name'),
+        revealSubtitle: document.getElementById('reveal-subtitle'),
+        revealTeamBadge: document.getElementById('reveal-team-badge'),
+        revealDesc: document.getElementById('reveal-desc'),
+        revealExtra: document.getElementById('reveal-extra'),
+        btnConfirmRole: document.getElementById('btn-confirm-role'),
+        rolesInfoModal: document.getElementById('roles-info-modal'),
+        rolesInfoList: document.getElementById('roles-info-list'),
+        btnRolesInfo: document.getElementById('btn-roles-info'),
+        btnCloseRolesInfo: document.getElementById('btn-close-roles-info'),
+        btnSound: document.getElementById('btn-sound'),
+        soundIcon: document.getElementById('sound-icon'),
+        soundLabel: document.getElementById('sound-label'),
+        gameoverModal: document.getElementById('gameover-modal'),
+        gameoverIcon: document.getElementById('gameover-icon'),
+        gameoverTitle: document.getElementById('gameover-title'),
+        gameoverDesc: document.getElementById('gameover-desc'),
+        gameoverRolesSummary: document.getElementById('gameover-roles-summary'),
+        btnRestartGame: document.getElementById('btn-restart-game')
+      };
+
+      // ==========================================
+      // 5. HULPFUNCTIES & LOGGING
+      // ==========================================
+      function shuffle(arr) {
+        const copy = [...arr];
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function getMe() {
+        return state.players.find(p => p.id === state.myId) || state.players[0];
+      }
+
+      function getAlivePlayers() {
+        return state.players.filter(p => p.alive);
+      }
+
+      function getAliveWolves() {
+        return state.players.filter(p => p.alive && p.role.id === 'WOLF');
+      }
+
+      function addLog(htmlText, borderClass = 'border-amber-500') {
+        const entry = { html: htmlText, border: borderClass };
+        state.eventItems.push(entry);
+        renderLogsFromState();
+        if (state.mode === 'FRIENDS' && state.isHost) {
+          syncStateToCloud({ eventItems: state.eventItems.slice(-40) });
+        }
+      }
+
+      function renderLogsFromState() {
+        if (state.eventItems.length < state.lastRenderedLogLen) {
+          dom.eventLog.innerHTML = '';
+          state.lastRenderedLogLen = 0;
+        }
+        for (let i = state.lastRenderedLogLen; i < state.eventItems.length; i++) {
+          const entry = state.eventItems[i];
+          const item = document.createElement('div');
+          item.className = `bg-black/45 border-l-2 ${entry.border} px-2 py-1 rounded text-amber-100/95 leading-snug`;
+          item.innerHTML = entry.html;
+          dom.eventLog.appendChild(item);
+        }
+        state.lastRenderedLogLen = state.eventItems.length;
+        dom.eventLog.scrollTop = dom.eventLog.scrollHeight;
+      }
+
+      function addChat(senderName, text, style = 'normal', senderId = null) {
+        const entry = { senderName, text, style, senderId };
+        state.chatLog.push(entry);
+        renderChatFromState();
+        playSfx('chat');
+        if (state.mode === 'FRIENDS' && state.roomCode) {
+          syncStateToCloud({ chatLog: state.chatLog.slice(-60) });
+        }
+      }
+
+      function renderChatFromState() {
+        const me = getMe();
+        if (state.chatLog.length < state.lastRenderedChatLen) {
+          dom.chatMessages.innerHTML = '';
+          state.lastRenderedChatLen = 0;
+        }
+        for (let i = state.lastRenderedChatLen; i < state.chatLog.length; i++) {
+          const entry = state.chatLog[i];
+          if (entry.style === 'wolf' && (!me || me.role.id !== 'WOLF')) continue;
+
+          const msg = document.createElement('div');
+          const isMine = entry.style === 'me' || (entry.senderId !== null && entry.senderId === state.myId && entry.style === 'normal');
+          if (entry.style === 'system') {
+            msg.className = 'bg-amber-950/70 border border-amber-700/60 text-amber-200 px-2 py-1 rounded text-center italic';
+            msg.textContent = entry.text;
+          } else if (entry.style === 'wolf') {
+            msg.className = 'bg-red-950/75 border border-red-700/70 text-red-100 px-2 py-1 rounded';
+            msg.innerHTML = `<span class="font-bold text-red-400">🐺 ${escapeHtml(entry.senderName)}:</span> ${escapeHtml(entry.text)}`;
+          } else if (isMine) {
+            msg.className = 'bg-sky-950/75 border border-sky-700/70 text-sky-100 px-2 py-1 rounded';
+            msg.innerHTML = `<span class="font-bold text-sky-300">${escapeHtml(entry.senderName)} (Jij):</span> ${escapeHtml(entry.text)}`;
+          } else {
+            msg.className = 'bg-black/45 border border-amber-900/50 text-amber-50 px-2 py-1 rounded';
+            msg.innerHTML = `<span class="font-bold text-amber-300">${escapeHtml(entry.senderName)}:</span> ${escapeHtml(entry.text)}`;
+          }
+          dom.chatMessages.appendChild(msg);
+        }
+        state.lastRenderedChatLen = state.chatLog.length;
+        dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+      }
+
+      function createPlayerAvatarSvg(seed) {
+        const hairs = ['#451a03', '#1e293b', '#92400e', '#b45309', '#7f1d1d', '#d97706'];
+        const shirts = ['#1d4ed8', '#047857', '#7e22ce', '#b91c1c', '#0f766e', '#a16207'];
+        const hair = hairs[seed % hairs.length];
+        const shirt = shirts[(seed * 3) % shirts.length];
+        return `
+          <svg viewBox="0 0 80 80" class="w-11 h-11 rounded-full bg-slate-800 border border-amber-500/60">
+            <path d="M14 80 C16 60, 28 54, 40 54 C52 54, 64 60, 66 80 Z" fill="${shirt}"/>
+            <circle cx="40" cy="34" r="15" fill="#fed7aa"/>
+            <path d="M25 32 C25 16, 55 16, 55 32 C50 24, 30 24, 25 32 Z" fill="${hair}"/>
+            <circle cx="35" cy="34" r="1.8" fill="#1e293b"/>
+            <circle cx="45" cy="34" r="1.8" fill="#1e293b"/>
+            <path d="M35 41 Q40 45 45 41" stroke="#7c2d12" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+          </svg>
+        `;
+      }
+
+      // ==========================================
+      // 6. SPEL INITIALISATIE (AI-MODUS & VRIENDEN-MODUS)
+      // ==========================================
+      function buildRoleDeck(count) {
+        const basePool = shuffle([
+          ROLES.WOLF,
+          ROLES.WOLF,
+          ROLES.BURGEMEESTER,
+          ROLES.SPIEKEND_MEISJE,
+          ROLES.HEKS,
+          ROLES.CUPIDO,
+          ROLES.DIEF,
+          ROLES.ZIENER,
+          ROLES.JAGER,
+          ROLES.BESCHERMENGEL,
+          ROLES.FLUITSPELER,
+          ROLES.DORPSGEK,
+          ROLES.VOS,
+          ROLES.RECHTER,
+          ROLES.BURGER
+        ]);
+        const deck = basePool.slice(0, count);
+        if (!deck.some(r => r.id === 'WOLF')) {
+          deck[0] = ROLES.WOLF;
+        }
+        return shuffle(deck);
+      }
+
+      function initNewGame(customParticipants = null) {
+        const rawName = (dom.usernameInput.value || '').trim();
+        const myUsername = rawName.length > 0 ? rawName : 'Jij_Speler';
+
+        let participants = [];
+        if (customParticipants && customParticipants.length > 0) {
+          participants = customParticipants;
+        } else {
+          state.mode = 'AI';
+          state.roomCode = null;
+          state.isHost = true;
+          state.myUid = 'local-human';
+          const shuffledBots = shuffle(BOT_USERNAMES);
+          participants.push({ uid: 'local-human', username: myUsername, isHuman: true, seed: 7 });
+          for (let i = 1; i < 14; i++) {
+            participants.push({ uid: `bot-${i}`, username: shuffledBots[i - 1], isHuman: false, seed: i * 5 + 3 });
+          }
+        }
+
+        dom.roomBadgeHud.textContent = state.roomCode ? `Kamer: ${state.roomCode}` : 'Solo AI';
+
+        const roleDeck = buildRoleDeck(participants.length);
+        state.players = participants.map((pt, idx) => ({
+          id: idx,
+          uid: pt.uid,
+          username: pt.username,
+          isHuman: pt.isHuman,
+          role: roleDeck[idx],
+          alive: true,
+          charmed: false,
+          seed: pt.seed || (idx * 5 + 3)
+        }));
+
+        const myPlayer = state.players.find(p => p.uid === state.myUid) || state.players[0];
+        state.myId = myPlayer.id;
+
+        state.round = 1;
+        state.lovers = [];
+        state.protectedId = null;
+        state.lastProtectedId = null;
+        state.wolfTargetId = null;
+        state.witchHealUsed = false;
+        state.witchPoisonUsed = false;
+        state.witchPoisonTargetId = null;
+        state.judgePardonUsed = false;
+        state.judgePardonActive = false;
+        state.selectedTargetId = null;
+        state.votes = {};
+        state.pendingHunterId = null;
+        state.afterHunterPhase = null;
+        state.morningSummary = '';
+        state.eventItems = [];
+        state.chatLog = [];
+        state.lastRenderedLogLen = 0;
+        state.lastRenderedChatLen = 0;
+        dom.eventLog.innerHTML = '';
+        dom.chatMessages.innerHTML = '';
+
+        setupLocalPlayerRoleCard();
+
+        addLog(`🎬 <b>Martijn Geritsen</b> opent Ronde 1 van <b>The Dutch Betrail</b> (${state.players.length} spelers)!`);
+        addChat('Systeem', `Welkom in Wakkerdam! De geheime rollen zijn verdeeld.`, 'system');
+
+        dom.startModal.classList.add('hidden');
+        dom.friendsLobbyModal.classList.add('hidden');
+        dom.gameoverModal.classList.add('hidden');
+
+        showMyRoleRevealModal();
+        renderBoard();
+        startPhase('REVEAL', 20);
+      }
+
+      function setupLocalPlayerRoleCard() {
+        const me = getMe();
+        if (!me) return;
+        state.revealedToMe = new Set([me.id]);
+        if (me.role.id === 'WOLF') {
+          state.players.forEach(p => {
+            if (p.role.id === 'WOLF') state.revealedToMe.add(p.id);
+          });
+        }
+        dom.myRoleIcon.textContent = me.role.icon;
+        dom.myRoleName.textContent = `${me.role.name} (${me.role.subtitle})`;
+        dom.myRoleTeam.textContent = me.role.teamLabel;
+        dom.myRoleDesc.textContent = me.role.desc;
+      }
+
+      function showMyRoleRevealModal() {
+        const me = getMe();
+        if (!me) return;
+        dom.revealIcon.textContent = me.role.icon;
+        dom.revealName.textContent = me.role.name;
+        dom.revealSubtitle.textContent = `(${me.role.subtitle})`;
+        dom.revealTeamBadge.textContent = me.role.teamLabel;
+        dom.revealDesc.textContent = me.role.desc;
+
+        if (me.role.id === 'WOLF') {
+          const fellow = state.players.find(p => p.id !== me.id && p.role.id === 'WOLF');
+          dom.revealExtra.textContent = fellow
+            ? `🐺 Jouw mede-weerwolf is: ${fellow.username}!`
+            : `🐺 Jij bent de enige weerwolf in het dorp!`;
+        } else {
+          dom.revealExtra.textContent = `🤫 Houd je rol geheim voor de andere spelers!`;
+        }
+
+        dom.roleRevealModal.classList.remove('hidden');
+        dom.roleRevealModal.classList.add('flex');
+      }
+
+      // ==========================================
+      // 6B. MULTIPLAYER VRIENDEN-KAMERS (FIRESTORE)
+      // ==========================================
+      async function syncStateToCloud(partialUpdate = null) {
+        if (state.mode !== 'FRIENDS' || !state.roomCode || !db) return;
+        try {
+          const ref = getRoomDocRef(state.roomCode);
+          if (partialUpdate) {
+            await updateDoc(ref, partialUpdate);
+            return;
+          }
+          const serializedPlayers = state.players.map(p => ({
+            id: p.id,
+            uid: p.uid,
+            username: p.username,
+            isHuman: p.isHuman,
+            roleId: p.role.id,
+            alive: p.alive,
+            charmed: p.charmed,
+            seed: p.seed
+          }));
+          await updateDoc(ref, {
+            status: state.phase === 'GAME_OVER' ? 'GAME_OVER' : 'PLAYING',
+            phase: state.phase,
+            round: state.round,
+            timer: state.timer,
+            maxTimer: state.maxTimer,
+            players: serializedPlayers,
+            lovers: state.lovers,
+            protectedId: state.protectedId,
+            wolfTargetId: state.wolfTargetId,
+            witchHealUsed: state.witchHealUsed,
+            witchPoisonUsed: state.witchPoisonUsed,
+            witchPoisonTargetId: state.witchPoisonTargetId,
+            judgePardonUsed: state.judgePardonUsed,
+            judgePardonActive: state.judgePardonActive,
+            votes: state.votes,
+            pendingHunterId: state.pendingHunterId,
+            morningSummary: state.morningSummary,
+            eventItems: state.eventItems.slice(-40),
+            chatLog: state.chatLog.slice(-60)
+          });
+        } catch (err) {
+          console.error('Fout bij synchroniseren kamer:', err);
+        }
+      }
+
+      async function createFriendsRoom() {
+        dom.friendsStatusMsg.textContent = 'Kamer aanmaken...';
+        try {
+          const user = await ensureFirebaseAuth();
+          const rawName = (dom.usernameInput.value || '').trim();
+          const myUsername = rawName.length > 0 ? rawName : 'Host_Speler';
+          const code = generateRoomCode();
+
+          state.mode = 'FRIENDS';
+          state.roomCode = code;
+          state.isHost = true;
+          state.myUid = user.uid;
+
+          const ref = getRoomDocRef(code);
+          await setDoc(ref, {
+            code,
+            hostUid: user.uid,
+            status: 'LOBBY',
+            createdAt: Date.now(),
+            lobbyPlayers: [
+              { uid: user.uid, username: myUsername, seed: 7 }
+            ]
+          });
+
+          dom.friendsStatusMsg.textContent = '';
+          openFriendsLobbyUI(code, true);
+          subscribeToRoom(code);
+        } catch (err) {
+          dom.friendsStatusMsg.textContent = err.message || 'Kon geen kamer aanmaken.';
+        }
+      }
+
+      async function joinFriendsRoom() {
+        const code = (dom.joinCodeInput.value || '').trim().toUpperCase();
+        if (code.length < 4) {
+          dom.friendsStatusMsg.textContent = 'Vul een geldige kamercode van je vriend in.';
+          return;
+        }
+        dom.friendsStatusMsg.textContent = 'Verbinden met kamer...';
+        try {
+          const user = await ensureFirebaseAuth();
+          const rawName = (dom.usernameInput.value || '').trim();
+          const myUsername = rawName.length > 0 ? rawName : 'Vriend_Speler';
+
+          const ref = getRoomDocRef(code);
+          const snap = await getDoc(ref);
+          if (!snap.exists()) {
+            dom.friendsStatusMsg.textContent = `Kamer "${code}" bestaat niet. Controleer de code!`;
+            return;
+          }
+
+          const data = snap.data();
+          if (data.status !== 'LOBBY') {
+            dom.friendsStatusMsg.textContent = 'Dit spel is al begonnen!';
+            return;
+          }
+
+          const existing = Array.isArray(data.lobbyPlayers) ? [...data.lobbyPlayers] : [];
+          if (!existing.some(p => p.uid === user.uid)) {
+            if (existing.length >= 14) {
+              dom.friendsStatusMsg.textContent = 'Deze kamer zit al vol (14/14 spelers)!';
+              return;
+            }
+            existing.push({
+              uid: user.uid,
+              username: myUsername,
+              seed: (existing.length + 2) * 5
+            });
+            await updateDoc(ref, { lobbyPlayers: existing });
+          }
+
+          state.mode = 'FRIENDS';
+          state.roomCode = code;
+          state.isHost = data.hostUid === user.uid;
+          state.myUid = user.uid;
+
+          dom.friendsStatusMsg.textContent = '';
+          openFriendsLobbyUI(code, state.isHost);
+          subscribeToRoom(code);
+        } catch (err) {
+          dom.friendsStatusMsg.textContent = err.message || 'Kon niet deelnemen aan kamer.';
+        }
+      }
+
+      function openFriendsLobbyUI(code, isHost) {
+        dom.startModal.classList.add('hidden');
+        dom.friendsLobbyModal.classList.remove('hidden');
+        dom.friendsLobbyModal.classList.add('flex');
+        dom.lobbyRoomCode.textContent = code;
+
+        if (isHost) {
+          dom.lobbyHostControls.classList.remove('hidden');
+          dom.lobbyGuestWait.classList.add('hidden');
+        } else {
+          dom.lobbyHostControls.classList.add('hidden');
+          dom.lobbyGuestWait.classList.remove('hidden');
+        }
+      }
+
+      function subscribeToRoom(code) {
+        if (roomUnsubscribe) roomUnsubscribe();
+        const ref = getRoomDocRef(code);
+        roomUnsubscribe = onSnapshot(ref, (snap) => {
+          if (!snap.exists()) return;
+          const data = snap.data();
+
+          if (data.status === 'LOBBY') {
+            const list = data.lobbyPlayers || [];
+            dom.lobbyPlayerCount.textContent = `${list.length} / 14`;
+            dom.lobbyPlayersList.innerHTML = list.map((p, idx) => `
+              <div class="flex items-center justify-between bg-black/50 border border-amber-800/60 rounded-lg px-3 py-1.5">
+                <span class="font-bold text-amber-100">${escapeHtml(p.username)} ${p.uid === state.myUid ? '<span class="text-sky-300">(Jij)</span>' : ''}</span>
+                <span class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded ${idx === 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-emerald-950 text-emerald-300'}">
+                  ${idx === 0 ? '👑 Host' : '✅ Klaar'}
+                </span>
+              </div>
+            `).join('');
+            return;
+          }
+
+          if (data.status === 'PLAYING' || data.status === 'GAME_OVER') {
+            const wasLobby = state.phase === 'LOBBY';
+            const prevPhase = state.phase;
+
+            if (Array.isArray(data.players)) {
+              state.players = data.players.map(sp => ({
+                ...sp,
+                role: ROLES[sp.roleId] || ROLES.BURGER
+              }));
+              const meObj = state.players.find(p => p.uid === state.myUid);
+              if (meObj) state.myId = meObj.id;
+            }
+
+            state.phase = data.phase;
+            state.round = data.round || 1;
+            state.timer = data.timer ?? state.timer;
+            state.maxTimer = data.maxTimer || 1;
+            state.lovers = data.lovers || [];
+            state.protectedId = data.protectedId ?? null;
+            state.wolfTargetId = data.wolfTargetId ?? null;
+            state.witchHealUsed = !!data.witchHealUsed;
+            state.witchPoisonUsed = !!data.witchPoisonUsed;
+            state.witchPoisonTargetId = data.witchPoisonTargetId ?? null;
+            state.judgePardonUsed = !!data.judgePardonUsed;
+            state.judgePardonActive = !!data.judgePardonActive;
+            state.votes = data.votes || {};
+            state.pendingHunterId = data.pendingHunterId ?? null;
+            state.morningSummary = data.morningSummary || '';
+
+            if (Array.isArray(data.eventItems)) {
+              state.eventItems = data.eventItems;
+              renderLogsFromState();
+            }
+            if (Array.isArray(data.chatLog)) {
+              state.chatLog = data.chatLog;
+              renderChatFromState();
+            }
+
+            if (wasLobby) {
+              dom.startModal.classList.add('hidden');
+              dom.friendsLobbyModal.classList.add('hidden');
+              setupLocalPlayerRoleCard();
+              showMyRoleRevealModal();
+            } else if (prevPhase === 'REVEAL' && state.phase !== 'REVEAL') {
+              dom.roleRevealModal.classList.add('hidden');
+              dom.roleRevealModal.classList.remove('flex');
+            }
+
+            if (!state.isHost) {
+              updatePhaseUI();
+              renderBoard();
+              updateTimerHUD();
+            }
+          }
+        }, (err) => {
+          console.error('Room listener error:', err);
+        });
+      }
+
+      async function startFriendsMatchAsHost() {
+        if (!state.isHost || !state.roomCode) return;
+        const ref = getRoomDocRef(state.roomCode);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+
+        const data = snap.data();
+        const lobbyPlayers = data.lobbyPlayers || [];
+        const fillBots = dom.chkFillBots.checked;
+
+        const participants = lobbyPlayers.map((lp, idx) => ({
+          uid: lp.uid,
+          username: lp.username,
+          isHuman: true,
+          seed: lp.seed || (idx + 1) * 5
+        }));
+
+        if (fillBots) {
+          const bots = shuffle(BOT_USERNAMES);
+          let bIdx = 0;
+          while (participants.length < 14 && bIdx < bots.length) {
+            participants.push({
+              uid: `bot-${bIdx + 1}`,
+              username: bots[bIdx],
+              isHuman: false,
+              seed: (participants.length + 3) * 5
+            });
+            bIdx++;
+          }
+        } else if (participants.length < 4) {
+          dom.lobbyHostControls.insertAdjacentHTML(
+            'beforeend',
+            `<div class="text-xs text-red-300 font-semibold">Nodig minimaal 4 vrienden uit of vink aan om lege plekken met AI-karakters aan te vullen!</div>`
+          );
+          return;
+        }
+
+        initNewGame(participants);
+        await syncStateToCloud();
+      }
+
+      // ==========================================
+      // 7. BORD RENDEREN (MET STRIKTE GEHEIMHOUDING)
+      // ==========================================
+      function renderBoard() {
+        const aliveCount = getAlivePlayers().length;
+        dom.hudRound.textContent = state.round;
+        dom.hudAlive.textContent = `${aliveCount}/${state.players.length || 14}`;
+
+        const me = getMe();
+        const isClickablePhase = canHumanClickTargets();
+
+        dom.playersGrid.innerHTML = '';
+
+        state.players.forEach(p => {
+          const isKnown = state.revealedToMe.has(p.id) || !p.alive || state.phase === 'GAME_OVER';
+          const isTargetable = isClickablePhase && isValidTargetForHuman(p);
+          const isSelected = state.selectedTargetId === p.id || state.wolfTargetId === p.id;
+          const isLover = state.lovers.includes(p.id) && (state.lovers.includes(state.myId) || (me && me.role.id === 'CUPIDO') || !p.alive);
+          const isCharmedVisible = p.charmed && ((me && me.role.id === 'FLUITSPELER') || !p.alive);
+
+          let voteCount = 0;
+          if (state.phase === 'DAY_VOTE') {
+            Object.entries(state.votes).forEach(([voterId, targetId]) => {
+              if (Number(targetId) === p.id) {
+                const voter = state.players[Number(voterId)];
+                voteCount += (voter && voter.role.id === 'BURGEMEESTER') ? 2 : 1;
+              }
+            });
+          }
+
+          const card = document.createElement('div');
+          card.className = [
+            'player-card p-2 flex flex-col items-center text-center',
+            p.id === state.myId ? 'is-me' : '',
+            !p.alive ? 'dead' : '',
+            isTargetable ? 'clickable' : '',
+            isSelected ? 'selected-target' : ''
+          ].join(' ');
+
+          let topBadges = '';
+          if (p.id === state.myId) {
+            topBadges += `<span class="text-[9px] font-extrabold bg-sky-600 text-white px-1.5 py-0.2 rounded">JIJ</span>`;
+          }
+          if (isLover) {
+            topBadges += `<span title="Geliefde" class="text-xs">💘</span>`;
+          }
+          if (isCharmedVisible) {
+            topBadges += `<span title="Betoverd door Fluitspeler" class="text-xs">🪈</span>`;
+          }
+          if (!p.alive) {
+            topBadges += `<span class="text-[9px] font-bold bg-red-900 text-red-200 px-1.5 rounded">DOOD</span>`;
+          }
+
+          const roleDisplay = isKnown
+            ? `
+              <div class="revealed-card-front w-full rounded-lg py-1 px-1 mt-1.5" title="${escapeHtml(p.role.name)} (${escapeHtml(p.role.subtitle)})">
+                <div class="text-base leading-none">${p.role.icon}</div>
+                <div class="text-[10px] font-extrabold text-amber-300 truncate mt-0.5">${escapeHtml(p.role.name)}</div>
+                <div class="text-[9px] text-amber-200/80 truncate">${escapeHtml(p.role.subtitle)}</div>
+              </div>
+            `
+            : `
+              <div class="secret-card-back w-full rounded-lg py-1.5 px-1 mt-1.5" title="Onbekend">
+                <div class="text-base font-black text-amber-300 leading-none">?</div>
+                <div class="text-[10px] font-bold text-amber-200/90 tracking-widest mt-0.5">???</div>
+                <div class="text-[9px] text-purple-200/70">Geheim</div>
+              </div>
+            `;
+
+          card.innerHTML = `
+            <div class="w-full flex items-center justify-between min-h-[16px] mb-1">
+              <div class="flex items-center gap-1">${topBadges}</div>
+              ${voteCount > 0 ? `<span class="text-[10px] font-black bg-red-600 text-white px-1.5 rounded-full">🗳️ ${voteCount}</span>` : ''}
+            </div>
+            ${createPlayerAvatarSvg(p.seed)}
+            <div class="text-[11px] font-extrabold text-amber-50 truncate w-full mt-1">${escapeHtml(p.username)}</div>
+            ${roleDisplay}
+          `;
+
+          if (isTargetable) {
+            card.addEventListener('click', () => handlePlayerCardClick(p));
+          }
+
+          dom.playersGrid.appendChild(card);
+        });
+      }
+
+      // ==========================================
+      // 8. TIMER ENGINE & CENTRALE FASE-MANAGER
+      // ==========================================
+      function startPhase(phaseName, durationSeconds) {
+        state.phase = phaseName;
+        state.timer = durationSeconds;
+        state.maxTimer = Math.max(1, durationSeconds);
+        state.selectedTargetId = null;
+
+        const isDay = phaseName.startsWith('DAY_') || phaseName === 'HUNTER_SHOT';
+        if (isDay) {
+          dom.body.classList.add('day-mode');
+        } else {
+          dom.body.classList.remove('day-mode');
+        }
+
+        updatePhaseUI();
+        renderBoard();
+        updateTimerHUD();
+
+        if (!state.tickInterval) {
+          state.tickInterval = setInterval(gameTick, 1000);
+        }
+      }
+
+      function updateTimerHUD() {
+        const mins = Math.floor(state.timer / 60);
+        const secs = state.timer % 60;
+        dom.hudTimer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        dom.veilTimer.textContent = `${state.timer}s`;
+
+        const pct = Math.max(0, Math.min(100, (state.timer / state.maxTimer) * 100));
+        dom.hudTimerBar.style.width = `${pct}%`;
+
+        if (state.timer > 0 && state.timer <= 5) {
+          dom.hudTimer.classList.add('timer-urgent');
+        } else {
+          dom.hudTimer.classList.remove('timer-urgent');
+        }
+      }
+
+      function gameTick() {
+        if (state.phase === 'LOBBY' || state.phase === 'GAME_OVER') return;
+        if (state.mode === 'FRIENDS' && !state.isHost) return;
+
+        if (state.phase === 'DAY_DISCUSS') {
+          state.aiChatCooldown--;
+          if (state.aiChatCooldown <= 0) {
+            triggerBotDayChat();
+            state.aiChatCooldown = 6 + Math.floor(Math.random() * 5);
+          }
+        }
+
+        if (state.timer > 0) {
+          state.timer--;
+          updateTimerHUD();
+
+          if (state.timer > 0 && state.timer <= 5) {
+            playSfx('tick');
+          }
+          if (state.mode === 'FRIENDS' && state.isHost && state.timer % 2 === 0) {
+            syncStateToCloud({ timer: state.timer });
+          }
+        }
+
+        if (state.timer <= 0) {
+          advancePhase();
+        }
+      }
+
+      // ==========================================
+      // 9. FASE UI & NACHTSLUIER ("OGEN DICHT")
+      // ==========================================
+      function isHumanAwakeInCurrentPhase() {
+        const me = getMe();
+        if (!me) return false;
+        if (state.phase === 'REVEAL' || state.phase === 'DAY_MORNING' || state.phase === 'DAY_DISCUSS' || state.phase === 'DAY_VOTE' || state.phase === 'GAME_OVER') {
+          return true;
+        }
+        if (state.phase === 'HUNTER_SHOT') {
+          return state.pendingHunterId === state.myId;
+        }
+        if (!me.alive) return false;
+
+        if (state.phase === 'NIGHT_CUPID' && me.role.id === 'CUPIDO') return true;
+        if (state.phase === 'NIGHT_THIEF' && me.role.id === 'DIEF') return true;
+        if (state.phase === 'NIGHT_WOLF' && me.role.id === 'WOLF') return true;
+        if (state.phase === 'NIGHT_PEEK' && me.role.id === 'SPIEKEND_MEISJE') return true;
+        if (state.phase === 'NIGHT_PROTECT' && me.role.id === 'BESCHERMENGEL') return true;
+        if (state.phase === 'NIGHT_SEER' && me.role.id === 'ZIENER') return true;
+        if (state.phase === 'NIGHT_FOX' && me.role.id === 'VOS') return true;
+        if (state.phase === 'NIGHT_PIPER' && me.role.id === 'FLUITSPELER') return true;
+        if (state.phase === 'NIGHT_WITCH' && me.role.id === 'HEKS') return true;
+
+        return false;
+      }
+
+      function setNightVeil(visible, title = '', story = '') {
+        if (visible) {
+          dom.veilTitle.textContent = title;
+          dom.veilStory.textContent = story;
+          dom.nightVeil.classList.remove('hidden');
+          dom.nightVeil.classList.add('flex');
+          if (state.mode === 'FRIENDS' && !state.isHost) {
+            dom.btnSkipVeil.classList.add('hidden');
+          } else {
+            dom.btnSkipVeil.classList.remove('hidden');
+          }
+        } else {
+          dom.nightVeil.classList.add('hidden');
+          dom.nightVeil.classList.remove('flex');
+        }
+      }
+
+      function updatePhaseUI() {
+        const me = getMe();
+        const awake = isHumanAwakeInCurrentPhase();
+        dom.actionButtonsBox.innerHTML = '';
+
+        // Chat standaard blokkeren, behalve tijdens dagbespreking of wolvennacht
+        dom.chatInput.disabled = true;
+        dom.chatSendBtn.disabled = true;
+        dom.chatHeaderTitle.textContent = '💬 Dorpsplein Chat';
+        dom.chatStatusPill.textContent = 'Gesloten';
+        dom.chatStatusPill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 font-bold';
+
+        if (!awake) {
+          playSfx('night');
+          const veilTexts = {
+            NIGHT_CUPID: ['Elsa de Tall (Cupido) ontwaakt...', 'Een gouden pijl snijdt geruisloos door de nachtlucht. Twee harten worden voor altijd aan elkaar verbonden...'],
+            NIGHT_THIEF: ['De belastingdienst (Dief) sluipt rond...', 'In het schijnsel van een lantaarn worden geheime dossiers ingezien. Niemand is veilig voor een aanslag...'],
+            NIGHT_WOLF: ['De zwarte tulp (Weerwolven) jaagt!', 'Grommende schaduwen verzamelen zich op het dorpsplein. De weerwolven fluisteren en kiezen hun prooi...'],
+            NIGHT_PEEK: ['Annie Frankie (Spiekende meisje) gluurt...', 'Achter een kier van de gordijnen tuurt een paar nieuwsgierige ogen het duister in...'],
+            NIGHT_PROTECT: ['Max Verlopen (Beschermengel) waakt...', 'Een onzichtbaar schild daalt neer boven één van de huizen in Wakkerdam...'],
+            NIGHT_SEER: ['Dun (Ziener) kijkt in de glazen bol...', 'Paarse nevel wervelt in het kristal. De ware identiteit van één dorpeling wordt onthuld...'],
+            NIGHT_FOX: ['Judith van Leer (Vos) besnuffelt de lucht...', 'Met spitse oren en scherpe neus ruikt de vos of er wolfachtig gevaar in de buurt is...'],
+            NIGHT_PIPER: ['André Real (Fluitspeler) speelt...', 'Een betoverende melodie zweeft over de grachten. Twee dorpelingen raken in hypnose...'],
+            NIGHT_WITCH: ['Nicolle Instructie (De heks) brouwt...', 'Boven een borrelende ketel twijfelt de heks tussen haar levenselixer en haar dodelijke gif...'],
+            HUNTER_SHOT: ['Virgil van Dam (Jager) richt zijn geweer!', 'Met zijn laatste adem legt de jager aan voor een beslissend schot...']
+          };
+          const [vTitle, vStory] = veilTexts[state.phase] || ['Sluit je ogen...', 'De nacht is diep en mysterieus. Wacht geduldig tot de ochtend aanbreekt...'];
+          setNightVeil(true, vTitle, vStory);
+          dom.phaseBadgeTitle.textContent = '🌙 NACHT IN WAKKERDAM';
+          dom.phaseBadgeSub.textContent = 'Houd je ogen gesloten...';
+          return;
+        }
+
+        // Jij bent wakker!
+        setNightVeil(false);
+
+        if (state.phase === 'REVEAL') {
+          dom.phaseBadgeTitle.textContent = '🎭 ROL ONTHULLING';
+          dom.phaseBadgeSub.textContent = 'Bekijk je geheime kaart';
+          dom.hostSpeech.textContent = '"Bekijk goed wie je bent, maar laat niemand meekijken!"';
+          dom.actionPromptTitle.textContent = 'Jouw geheime rol is uitgedeeld';
+          dom.actionPromptDesc.textContent = 'Klik op de knop in het venster zodra je klaar bent voor de eerste nacht.';
+          return;
+        }
+
+        if (state.phase === 'NIGHT_CUPID') {
+          dom.phaseBadgeTitle.textContent = '💘 NACHT: CUPIDO';
+          dom.phaseBadgeSub.textContent = 'Kies 2 geliefden';
+          dom.hostSpeech.textContent = '"Elsa de Tall, op wie schiet jij je liefdespijlen?"';
+          dom.actionPromptTitle.textContent = 'Kies twee spelers om verliefd te maken';
+          dom.actionPromptDesc.textContent = `Gekozen geliefden: ${state.lovers.length}/2. Klik op twee spelerskaarten.`;
+          addActionBtn('Overslaan', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_THIEF') {
+          dom.phaseBadgeTitle.textContent = '💼 NACHT: DIEF';
+          dom.phaseBadgeSub.textContent = 'Steel een rol of sla over';
+          dom.hostSpeech.textContent = '"De belastingdienst komt langs... Pak jij iemands rol af?"';
+          dom.actionPromptTitle.textContent = 'Klik op een speler om diens rol te stelen';
+          dom.actionPromptDesc.textContent = 'Of behoud je huidige rol door op Overslaan te klikken.';
+          addActionBtn('Behoud mijn rol', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_WOLF') {
+          dom.phaseBadgeTitle.textContent = '🐺 NACHT: WEERWOLVEN';
+          dom.phaseBadgeSub.textContent = 'Overleg & kies jullie prooi';
+          dom.hostSpeech.textContent = '"De zwarte tulp slaat toe! Overleg in de geheime wolven-chat."';
+          dom.actionPromptTitle.textContent = 'Klik op een dorpeling om aan te vallen';
+          dom.actionPromptDesc.textContent = state.wolfTargetId !== null
+            ? `Geselecteerde prooi: ${state.players[state.wolfTargetId].username}. Klik op Bevestig als jullie klaar zijn!`
+            : 'Je hebt 75 seconden om met je mede-wolf te overleggen en een doelwit te kiezen.';
+
+          dom.chatHeaderTitle.textContent = '🐺 Geheime Wolven-Chat';
+          dom.chatStatusPill.textContent = 'Alleen Wolven';
+          dom.chatStatusPill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-red-900 text-red-200 font-bold';
+          dom.chatInput.disabled = false;
+          dom.chatSendBtn.disabled = false;
+
+          if (state.wolfTargetId !== null) {
+            addActionBtn('🐺 Bevestig prooi & sluit ogen', () => advancePhase(), 'bg-red-600 hover:bg-red-500 text-white');
+          }
+        } else if (state.phase === 'NIGHT_PEEK') {
+          dom.phaseBadgeTitle.textContent = '👁️ NACHT: SPIEKEND MEISJE';
+          dom.phaseBadgeSub.textContent = 'Gluur in het duister';
+          dom.hostSpeech.textContent = '"Annie Frankie, durf jij een blik te werpen?"';
+          dom.actionPromptTitle.textContent = 'Wil je stiekem gluren naar de weerwolven?';
+          dom.actionPromptDesc.textContent = 'Je vangt een aanwijzing op over wie De zwarte tulp is!';
+          addActionBtn('👁️ Stiekem gluren', () => {
+            const wolves = getAliveWolves();
+            if (wolves.length > 0) {
+              const seen = wolves[Math.floor(Math.random() * wolves.length)];
+              state.revealedToMe.add(seen.id);
+              addLog(`👁️ Je gluurde door de gordijnen en zag dat <b>${seen.username}</b> een <b>De zwarte tulp</b> is!`, 'border-purple-400');
+            }
+            advancePhase();
+          }, 'bg-purple-600 hover:bg-purple-500 text-white');
+          addActionBtn('Niet gluren', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_PROTECT') {
+          dom.phaseBadgeTitle.textContent = '🛡️ NACHT: BESCHERMENGEL';
+          dom.phaseBadgeSub.textContent = 'Bescherm 1 speler';
+          dom.hostSpeech.textContent = '"Max Verlopen, wie bescherm jij vannacht?"';
+          dom.actionPromptTitle.textContent = 'Klik op een speler om te beschermen';
+          dom.actionPromptDesc.textContent = 'Je mag niet twee nachten achter elkaar dezelfde persoon kiezen.';
+          addActionBtn('Overslaan', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_SEER') {
+          dom.phaseBadgeTitle.textContent = '🔮 NACHT: ZIENER';
+          dom.phaseBadgeSub.textContent = 'Bekijk 1 geheime rol';
+          dom.hostSpeech.textContent = '"Dun, wie bekijk jij vannacht in je glazen bol?"';
+          dom.actionPromptTitle.textContent = 'Klik op een speler om zijn/haar geheime rol te onthullen';
+          dom.actionPromptDesc.textContent = 'De gekozen kaart draait alleen voor jou open!';
+          addActionBtn('Overslaan', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_FOX') {
+          dom.phaseBadgeTitle.textContent = '🦊 NACHT: VOS';
+          dom.phaseBadgeSub.textContent = 'Ruik aan 3 buren';
+          dom.hostSpeech.textContent = '"Judith van Leer, wie besnuffel jij vannacht?"';
+          dom.actionPromptTitle.textContent = 'Klik op een speler om hem en zijn directe buren te besnuffelen';
+          dom.actionPromptDesc.textContent = 'Je ruikt direct of er minstens één weerwolf tussen zit.';
+          addActionBtn('Overslaan', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'NIGHT_PIPER') {
+          dom.phaseBadgeTitle.textContent = '🪈 NACHT: FLUITSPELER';
+          dom.phaseBadgeSub.textContent = 'Betover tot 2 spelers';
+          dom.hostSpeech.textContent = '"André Real, wie betover jij met je magische fluit?"';
+          dom.actionPromptTitle.textContent = 'Klik op maximaal 2 spelers om ze te betoveren';
+          dom.actionPromptDesc.textContent = 'Zodra alle levende spelers betoverd zijn, win jij alleen!';
+          addActionBtn('Klaar met spelen', () => advancePhase(), 'bg-purple-600 hover:bg-purple-500 text-white');
+        } else if (state.phase === 'NIGHT_WITCH') {
+          dom.phaseBadgeTitle.textContent = '🧪 NACHT: DE HEKS';
+          dom.phaseBadgeSub.textContent = 'Levens- of doodsdrankje';
+          dom.hostSpeech.textContent = '"Nicolle Instructie, gebruik jij vannacht een toverdrank?"';
+          const victim = state.wolfTargetId !== null ? state.players[state.wolfTargetId] : null;
+          dom.actionPromptTitle.textContent = victim
+            ? `De weerwolven vallen vannacht ${victim.username} aan!`
+            : 'Niemand wordt vannacht aangevallen door de wolven.';
+          dom.actionPromptDesc.textContent = 'Gebruik je levensdrankje om te redden, klik een speler aan voor je doodsdrankje, of sla over.';
+
+          if (victim && !state.witchHealUsed) {
+            addActionBtn(`💚 Red ${victim.username}`, () => {
+              state.witchHealUsed = true;
+              state.wolfTargetId = null;
+              addLog(`💚 Je hebt je <b>levensdrankje</b> gebruikt en <b>${victim.username}</b> gered!`, 'border-emerald-400');
+              advancePhase();
+            }, 'bg-emerald-600 hover:bg-emerald-500 text-white');
+          }
+          addActionBtn('Sluit ogen (Klaar)', () => advancePhase(), 'bg-slate-700 text-white');
+        } else if (state.phase === 'DAY_MORNING') {
+          dom.phaseBadgeTitle.textContent = '☀️ OCHTEND IN WAKKERDAM';
+          dom.phaseBadgeSub.textContent = 'Nachtverslag';
+          dom.hostSpeech.textContent = `"${state.morningSummary}"`;
+          dom.actionPromptTitle.textContent = 'De zon komt op boven de grachten!';
+          dom.actionPromptDesc.textContent = state.morningSummary;
+          if (state.mode !== 'FRIENDS' || state.isHost) {
+            addActionBtn('💬 Start Dorpsbespreking (90s)', () => advancePhase(), 'bg-amber-500 hover:bg-amber-400 text-amber-950');
+          }
+        } else if (state.phase === 'DAY_DISCUSS') {
+          dom.phaseBadgeTitle.textContent = '🗣️ DORPSBESPREKING';
+          dom.phaseBadgeSub.textContent = '90 sec overleg in chat';
+          dom.hostSpeech.textContent = '"Wie gedraagt zich verdacht? Bespreek het nu op het dorpsplein!"';
+          dom.actionPromptTitle.textContent = 'Overleg met het dorp in de chat!';
+          dom.actionPromptDesc.textContent = me && me.alive
+            ? 'Typ jouw verdenkingen in de Dorpsplein Chat rechtsonder.'
+            : 'Je bent uitgeschakeld en kijkt toe hoe het dorp discussieert.';
+
+          if (me && me.alive) {
+            dom.chatInput.disabled = false;
+            dom.chatSendBtn.disabled = false;
+            dom.chatStatusPill.textContent = 'Open (90s)';
+            dom.chatStatusPill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-900 text-emerald-200 font-bold';
+            if (state.mode !== 'FRIENDS' || state.isHost) {
+              addActionBtn('🗳️ Klaar met bespreken ➔ Stemmen', () => advancePhase(), 'bg-amber-500 hover:bg-amber-400 text-amber-950');
+            }
+          }
+        } else if (state.phase === 'DAY_VOTE') {
+          dom.phaseBadgeTitle.textContent = '🗳️ STEMRONDE';
+          dom.phaseBadgeSub.textContent = 'Kies wie wordt weggestemd';
+          dom.hostSpeech.textContent = '"Het uur van de waarheid! Wie verbannen jullie vandaag uit Wakkerdam?"';
+          const myVote = state.votes[state.myId];
+          dom.actionPromptTitle.textContent = myVote !== undefined
+            ? `Jouw stem staat op: ${state.players[myVote].username}`
+            : 'Klik op een speler om je stem uit te brengen!';
+          dom.actionPromptDesc.textContent = me && me.role.id === 'BURGEMEESTER'
+            ? '🎖️ Als Burgemeester Willempie telt jouw stem DUBBEL (2 stemmen)!'
+            : 'Je kunt je stem nog wijzigen zolang de timer loopt.';
+
+          if (me && me.alive && me.role.id === 'RECHTER' && !state.judgePardonUsed) {
+            addActionBtn('⚖️ Verleen Gratie (Rechter)', () => {
+              state.judgePardonUsed = true;
+              state.judgePardonActive = true;
+              addLog('⚖️ <b>Mart Ruiter (Rechter)</b> slaat met zijn hamer en verleent gratie! Niemand wordt vandaag geëlimineerd.', 'border-sky-400');
+              advancePhase();
+            }, 'bg-sky-600 hover:bg-sky-500 text-white');
+          }
+          if (myVote !== undefined && (state.mode !== 'FRIENDS' || state.isHost)) {
+            addActionBtn('✅ Bevestig stem & tel op', () => advancePhase(), 'bg-emerald-600 hover:bg-emerald-500 text-white');
+          }
+        } else if (state.phase === 'HUNTER_SHOT') {
+          dom.phaseBadgeTitle.textContent = '🎯 LAATSTE SCHOT VAN DE JAGER';
+          dom.phaseBadgeSub.textContent = 'Virgil van Dam neemt wraak!';
+          dom.hostSpeech.textContent = '"Virgil van Dam zakt neer, maar grijpt nog naar zijn jachtgeweer!"';
+          dom.actionPromptTitle.textContent = 'Jij bent uitgeschakeld! Klik op één speler om mee te nemen';
+          dom.actionPromptDesc.textContent = 'Kies zorgvuldig wie jij met je laatste kogel raakt.';
+        }
+      }
+
+      function addActionBtn(label, onClickFn, colorClasses) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `px-3.5 py-2 rounded-xl font-extrabold text-xs shadow-md transition cursor-pointer ${colorClasses}`;
+        btn.textContent = label;
+        btn.addEventListener('click', onClickFn);
+        dom.actionButtonsBox.appendChild(btn);
+      }
+
+      // ==========================================
+      // 10. KLIKKEN OP SPELERS (DOELWIT KIEZEN)
+      // ==========================================
+      function canHumanClickTargets() {
+        const me = getMe();
+        if (!me) return false;
+        if (state.phase === 'HUNTER_SHOT' && state.pendingHunterId === state.myId) return true;
+        if (!me.alive) return false;
+        if (state.phase === 'DAY_VOTE') return true;
+        if (state.phase === 'NIGHT_CUPID' && me.role.id === 'CUPIDO') return true;
+        if (state.phase === 'NIGHT_THIEF' && me.role.id === 'DIEF') return true;
+        if (state.phase === 'NIGHT_WOLF' && me.role.id === 'WOLF') return true;
+        if (state.phase === 'NIGHT_PROTECT' && me.role.id === 'BESCHERMENGEL') return true;
+        if (state.phase === 'NIGHT_SEER' && me.role.id === 'ZIENER') return true;
+        if (state.phase === 'NIGHT_FOX' && me.role.id === 'VOS') return true;
+        if (state.phase === 'NIGHT_PIPER' && me.role.id === 'FLUITSPELER') return true;
+        if (state.phase === 'NIGHT_WITCH' && me.role.id === 'HEKS' && !state.witchPoisonUsed) return true;
+        return false;
+      }
+
+      function isValidTargetForHuman(target) {
+        if (!target.alive) return false;
+
+        if (state.phase === 'DAY_VOTE') return target.id !== state.myId;
+        if (state.phase === 'HUNTER_SHOT') return target.id !== state.myId;
+        if (state.phase === 'NIGHT_CUPID' || state.phase === 'NIGHT_THIEF') return true;
+        if (state.phase === 'NIGHT_WOLF') return target.role.id !== 'WOLF';
+        if (state.phase === 'NIGHT_PROTECT') return target.id !== state.lastProtectedId;
+        if (state.phase === 'NIGHT_SEER') return target.id !== state.myId && !state.revealedToMe.has(target.id);
+        if (state.phase === 'NIGHT_FOX') return target.id !== state.myId;
+        if (state.phase === 'NIGHT_PIPER') return target.id !== state.myId && !target.charmed;
+        if (state.phase === 'NIGHT_WITCH') return target.id !== state.myId;
+        return false;
+      }
+
+      function handlePlayerCardClick(target) {
+        const me = getMe();
+        playSfx('vote');
+
+        // 1. Overdag stemmen
+        if (state.phase === 'DAY_VOTE') {
+          state.votes[state.myId] = target.id;
+          state.selectedTargetId = target.id;
+          addLog(`🗳️ <b>${me.username}</b> heeft een stem uitgebracht.`, 'border-sky-400');
+          updatePhaseUI();
+          renderBoard();
+          if (state.mode === 'FRIENDS') syncStateToCloud({ votes: state.votes });
+          return;
+        }
+
+        // 2. Jager schot
+        if (state.phase === 'HUNTER_SHOT' && state.pendingHunterId === state.myId) {
+          addLog(`🎯 <b>Virgil van Dam</b> schiet op <b>${target.username}</b>!`, 'border-red-500');
+          eliminatePlayer(target.id, 'geraakt door het laatste schot van Virgil van Dam');
+          state.pendingHunterId = null;
+          if (!checkWinCondition()) {
+            const next = state.afterHunterPhase || 'DAY_DISCUSS';
+            state.afterHunterPhase = null;
+            if (next === 'NEXT_NIGHT') {
+              state.round++;
+              startPhase('NIGHT_WOLF', anyAliveWolfIsHuman() ? 75 : 20);
+            } else {
+              startPhase('DAY_DISCUSS', 90);
+            }
+          }
+          return;
+        }
+
+        // 3. Cupido
+        if (state.phase === 'NIGHT_CUPID' && me.role.id === 'CUPIDO') {
+          if (!state.lovers.includes(target.id) && state.lovers.length < 2) {
+            state.lovers.push(target.id);
+            updatePhaseUI();
+            renderBoard();
+            if (state.lovers.length === 2) {
+              const p1 = state.players[state.lovers[0]];
+              const p2 = state.players[state.lovers[1]];
+              addLog(`💘 Je hebt <b>${p1.username}</b> en <b>${p2.username}</b> voor eeuwig aan elkaar verbonden!`, 'border-pink-400');
+              advancePhase();
+            }
+          }
+          return;
+        }
+
+        // 4. Dief
+        if (state.phase === 'NIGHT_THIEF' && me.role.id === 'DIEF') {
+          const stolenRole = target.role;
+          target.role = me.role;
+          me.role = stolenRole;
+          setupLocalPlayerRoleCard();
+          addLog(`💼 Je hebt een belastingaanslag opgelegd en de rol <b>${stolenRole.name} (${stolenRole.subtitle})</b> overgenomen van <b>${target.username}</b>!`, 'border-amber-400');
+          advancePhase();
+          return;
+        }
+
+        // 5. Weerwolf voorstel (beëindigt de 75s niet meteen zodat wolven kunnen blijven overleggen!)
+        if (state.phase === 'NIGHT_WOLF' && me.role.id === 'WOLF') {
+          state.wolfTargetId = target.id;
+          state.selectedTargetId = target.id;
+          addChat(me.username, `Ik stel voor dat we vannacht ${target.username} pakken!`, 'wolf', state.myId);
+          if (state.mode === 'FRIENDS') syncStateToCloud({ wolfTargetId: state.wolfTargetId });
+          const fellowBot = getAliveWolves().find(w => w.id !== state.myId && !w.isHuman);
+          if (fellowBot) {
+            setTimeout(() => {
+              if (state.phase !== 'NIGHT_WOLF') return;
+              addChat(fellowBot.username, `Goed idee! ${target.username} lijkt me gevaarlijk voor ons. Klik op Bevestig als je klaar bent.`, 'wolf', fellowBot.id);
+            }, 800);
+          }
+          updatePhaseUI();
+          renderBoard();
+          return;
+        }
+
+        // 6. Beschermengel
+        if (state.phase === 'NIGHT_PROTECT' && me.role.id === 'BESCHERMENGEL') {
+          state.protectedId = target.id;
+          state.lastProtectedId = target.id;
+          addLog(`🛡️ Je beschermt <b>${target.username}</b> vannacht tegen de weerwolven.`, 'border-sky-400');
+          advancePhase();
+          return;
+        }
+
+        // 7. Ziener
+        if (state.phase === 'NIGHT_SEER' && me.role.id === 'ZIENER') {
+          state.revealedToMe.add(target.id);
+          addLog(`🔮 Visioen! <b>${target.username}</b> is in het geheim <b>${target.role.icon} ${target.role.name} (${target.role.subtitle})</b>!`, 'border-purple-400');
+          advancePhase();
+          return;
+        }
+
+        // 8. Vos
+        if (state.phase === 'NIGHT_FOX' && me.role.id === 'VOS') {
+          const alive = getAlivePlayers();
+          const idx = alive.findIndex(p => p.id === target.id);
+          const left = alive[(idx - 1 + alive.length) % alive.length];
+          const right = alive[(idx + 1) % alive.length];
+          const group = [target, left, right];
+          const hasWolf = group.some(p => p.role.id === 'WOLF');
+          addLog(
+            hasWolf
+              ? `🦊 Je spitst je neus bij <b>${target.username}</b>... JA! Minstens één van hen is <b>De zwarte tulp</b>!`
+              : `🦊 Je spitst je neus bij <b>${target.username}</b>... Rustig, geen weerwolf tussen deze drie.`,
+            hasWolf ? 'border-red-500' : 'border-emerald-500'
+          );
+          advancePhase();
+          return;
+        }
+
+        // 9. Fluitspeler
+        if (state.phase === 'NIGHT_PIPER' && me.role.id === 'FLUITSPELER') {
+          target.charmed = true;
+          addLog(`🪈 Je hebt <b>${target.username}</b> betoverd met je fluit!`, 'border-purple-400');
+          renderBoard();
+          const charmedCount = state.players.filter(p => p.alive && p.charmed).length;
+          if (charmedCount % 2 === 0) {
+            advancePhase();
+          }
+          return;
+        }
+
+        // 10. Heks doodsdrankje
+        if (state.phase === 'NIGHT_WITCH' && me.role.id === 'HEKS' && !state.witchPoisonUsed) {
+          state.witchPoisonUsed = true;
+          state.witchPoisonTargetId = target.id;
+          addLog(`☠️ Je hebt je <b>doodsdrankje</b> gegooid op <b>${target.username}</b>!`, 'border-purple-500');
+          advancePhase();
+        }
+      }
+
+      function anyAliveHumanHasRole(roleIds) {
+        return state.players.some(p => p.alive && p.isHuman && roleIds.includes(p.role.id));
+      }
+
+      function anyAliveWolfIsHuman() {
+        return anyAliveHumanHasRole(['WOLF']);
+      }
+
+      // ==========================================
+      // 11. FASE OVERGANGEN & AI NACHTACTIES
+      // ==========================================
+      function advancePhase() {
+        if (state.mode === 'FRIENDS' && !state.isHost) {
+          if (state.phase === 'REVEAL') {
+            dom.roleRevealModal.classList.add('hidden');
+            dom.roleRevealModal.classList.remove('flex');
+          }
+          return;
+        }
+
+        if (state.phase === 'REVEAL') {
+          dom.roleRevealModal.classList.add('hidden');
+          dom.roleRevealModal.classList.remove('flex');
+          state.protectedId = null;
+          state.wolfTargetId = null;
+          state.witchPoisonTargetId = null;
+          startPhase('NIGHT_CUPID', anyAliveHumanHasRole(['CUPIDO']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_CUPID') {
+          resolveBotNightN1();
+          startPhase('NIGHT_THIEF', anyAliveHumanHasRole(['DIEF']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_THIEF') {
+          const wolfDuration = anyAliveWolfIsHuman() ? 75 : 20;
+          startPhase('NIGHT_WOLF', wolfDuration);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_WOLF') {
+          resolveBotWolfChoice();
+          startPhase('NIGHT_PEEK', anyAliveHumanHasRole(['SPIEKEND_MEISJE']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_PEEK') {
+          startPhase('NIGHT_PROTECT', anyAliveHumanHasRole(['BESCHERMENGEL']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_PROTECT') {
+          resolveBotProtect();
+          startPhase('NIGHT_SEER', anyAliveHumanHasRole(['ZIENER']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_SEER') {
+          startPhase('NIGHT_FOX', anyAliveHumanHasRole(['VOS']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_FOX') {
+          startPhase('NIGHT_PIPER', anyAliveHumanHasRole(['FLUITSPELER']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_PIPER') {
+          resolveBotPiper();
+          startPhase('NIGHT_WITCH', anyAliveHumanHasRole(['HEKS']) ? 30 : 15);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'NIGHT_WITCH') {
+          resolveBotWitch();
+          resolveNightDeaths();
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'DAY_MORNING') {
+          state.aiChatCooldown = 3;
+          startPhase('DAY_DISCUSS', 90);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'DAY_DISCUSS') {
+          state.votes = {};
+          state.judgePardonActive = false;
+          scheduleBotVotes();
+          startPhase('DAY_VOTE', 30);
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+          return;
+        }
+
+        if (state.phase === 'DAY_VOTE') {
+          resolveDayVote();
+          if (state.mode === 'FRIENDS') syncStateToCloud();
+        }
+      }
+
+      function resolveBotNightN1() {
+        const cupido = state.players.find(p => p.alive && p.role.id === 'CUPIDO');
+        if (cupido && !cupido.isHuman && state.lovers.length < 2) {
+          const pool = shuffle(getAlivePlayers());
+          state.lovers = [pool[0].id, pool[1].id];
+          if (state.lovers.includes(state.myId)) {
+            const partner = state.players[state.lovers.find(id => id !== state.myId)];
+            addLog(`💘 Cupido heeft jou voor eeuwig verliefd gemaakt op <b>${partner.username}</b>!`, 'border-pink-500');
+          }
+        }
+      }
+
+      function resolveBotWolfChoice() {
+        if (state.wolfTargetId !== null) return;
+        const candidates = getAlivePlayers().filter(p => p.role.id !== 'WOLF');
+        if (candidates.length > 0) {
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+          state.wolfTargetId = chosen.id;
+        }
+      }
+
+      function resolveBotProtect() {
+        const angel = state.players.find(p => p.alive && p.role.id === 'BESCHERMENGEL');
+        if (angel && !angel.isHuman) {
+          const candidates = getAlivePlayers().filter(p => p.id !== state.lastProtectedId);
+          if (candidates.length > 0) {
+            const pick = candidates[Math.floor(Math.random() * candidates.length)];
+            state.protectedId = pick.id;
+            state.lastProtectedId = pick.id;
+          }
+        }
+      }
+
+      function resolveBotPiper() {
+        const piper = state.players.find(p => p.alive && p.role.id === 'FLUITSPELER');
+        if (piper && !piper.isHuman) {
+          const uncharmed = shuffle(getAlivePlayers().filter(p => p.id !== piper.id && !p.charmed));
+          uncharmed.slice(0, 2).forEach(p => { p.charmed = true; });
+        }
+      }
+
+      function resolveBotWitch() {
+        const witch = state.players.find(p => p.alive && p.role.id === 'HEKS');
+        if (witch && !witch.isHuman) {
+          if (!state.witchHealUsed && state.wolfTargetId !== null && Math.random() < 0.45) {
+            state.witchHealUsed = true;
+            state.wolfTargetId = null;
+          } else if (!state.witchPoisonUsed && state.round >= 2 && Math.random() < 0.35) {
+            const targets = getAlivePlayers().filter(p => p.id !== witch.id);
+            if (targets.length > 0) {
+              state.witchPoisonUsed = true;
+              state.witchPoisonTargetId = targets[Math.floor(Math.random() * targets.length)].id;
+            }
+          }
+        }
+      }
+
+      function resolveNightDeaths() {
+        playSfx('morning');
+        const victims = [];
+
+        if (state.wolfTargetId !== null) {
+          if (state.wolfTargetId === state.protectedId) {
+            addLog(`🛡️ De weerwolven vielen vannacht aan, maar <b>Max Verlopen (Beschermengel)</b> hield het slachtoffer veilig!`, 'border-sky-400');
+          } else {
+            victims.push({ id: state.wolfTargetId, reason: 'verslonden door De zwarte tulp' });
+          }
+        }
+
+        if (state.witchPoisonTargetId !== null && !victims.some(v => v.id === state.witchPoisonTargetId)) {
+          victims.push({ id: state.witchPoisonTargetId, reason: 'vergiftigd door Nicolle Instructie (Heks)' });
+        }
+
+        if (victims.length === 0) {
+          state.morningSummary = `Wonder boven wonder is er vannacht niemand gestorven in Wakkerdam!`;
+          addLog(`☀️ Ochtend ${state.round}: Wonder boven wonder is er vannacht <b>niemand</b> gestorven!`, 'border-emerald-400');
+          addChat('Martijn Geritsen', `Goedemorgen Wakkerdam! Niemand is vannacht omgekomen. Wie heeft iets gezien?`, 'system');
+        } else {
+          const names = victims.map(v => state.players[v.id].username).join(' en ');
+          state.morningSummary = `Vannacht is ${names} om het leven gekomen!`;
+          victims.forEach(v => {
+            eliminatePlayer(v.id, v.reason);
+          });
+        }
+
+        state.protectedId = null;
+        state.wolfTargetId = null;
+        state.witchPoisonTargetId = null;
+
+        if (state.pendingHunterId !== null) {
+          state.afterHunterPhase = 'DAY_DISCUSS';
+          triggerHunterPhase();
+          return;
+        }
+
+        if (!checkWinCondition()) {
+          startPhase('DAY_MORNING', 15);
+        }
+      }
+
+      function scheduleBotVotes() {
+        const aliveBots = getAlivePlayers().filter(p => !p.isHuman);
+        aliveBots.forEach((bot, idx) => {
+          const delay = 2500 + (idx * 1400) + Math.floor(Math.random() * 2500);
+          setTimeout(() => {
+            if (state.phase !== 'DAY_VOTE' || !bot.alive) return;
+            const choices = getAlivePlayers().filter(p => p.id !== bot.id && (bot.role.id !== 'WOLF' || p.role.id !== 'WOLF'));
+            if (choices.length > 0) {
+              const target = choices[Math.floor(Math.random() * choices.length)];
+              state.votes[bot.id] = target.id;
+              renderBoard();
+            }
+          }, delay);
+        });
+      }
+
+      function resolveDayVote() {
+        getAlivePlayers().filter(p => !p.isHuman).forEach(bot => {
+          if (state.votes[bot.id] === undefined) {
+            const choices = getAlivePlayers().filter(p => p.id !== bot.id);
+            if (choices.length > 0) state.votes[bot.id] = choices[0].id;
+          }
+        });
+
+        if (state.judgePardonActive) {
+          addChat('Martijn Geritsen', `Mart Ruiter (Rechter) heeft gratie verleend! Niemand wordt vandaag weggestemd.`, 'system');
+          state.round++;
+          startPhase('NIGHT_WOLF', anyAliveWolfIsHuman() ? 75 : 20);
+          return;
+        }
+
+        const tally = {};
+        Object.entries(state.votes).forEach(([voterId, targetId]) => {
+          const voter = state.players[Number(voterId)];
+          if (!voter || !voter.alive) return;
+          const weight = voter.role.id === 'BURGEMEESTER' ? 2 : 1;
+          tally[targetId] = (tally[targetId] || 0) + weight;
+        });
+
+        let maxVotes = 0;
+        let topId = null;
+        Object.entries(tally).forEach(([targetId, count]) => {
+          if (count > maxVotes) {
+            maxVotes = count;
+            topId = Number(targetId);
+          }
+        });
+
+        if (topId !== null) {
+          const eliminated = state.players[topId];
+          if (eliminated.role.id === 'DORPSGEK') {
+            eliminated.alive = false;
+            renderBoard();
+            showGameOver(
+              '🃏',
+              'Joost Groot (Dorpsgek) Wint!',
+              `${eliminated.username} was de Dorpsgek en heeft jullie erin geluisd om hem overdag weg te stemmen!`
+            );
+            return;
+          }
+
+          eliminatePlayer(topId, `weggestemd door het dorp (${maxVotes} stemmen)`);
+        } else {
+          addLog(`🤷 Er zijn geen geldige stemmen uitgebracht vandaag.`, 'border-amber-500');
+        }
+
+        if (state.pendingHunterId !== null) {
+          state.afterHunterPhase = 'NEXT_NIGHT';
+          triggerHunterPhase();
+          return;
+        }
+
+        if (!checkWinCondition()) {
+          state.round++;
+          startPhase('NIGHT_WOLF', anyAliveWolfIsHuman() ? 75 : 20);
+        }
+      }
+
+      function eliminatePlayer(playerId, reasonText) {
+        const target = state.players[playerId];
+        if (!target || !target.alive) return;
+
+        target.alive = false;
+        state.revealedToMe.add(target.id);
+        playSfx('eliminated');
+
+        addLog(
+          `💀 <b>${target.username}</b> is ${reasonText}. Rol: <b>${target.role.icon} ${target.role.name} (${target.role.subtitle})</b>!`,
+          'border-red-500'
+        );
+        addChat('Martijn Geritsen', `${target.username} is uitgeschakeld! Zijn/haar geheime rol was ${target.role.name} (${target.role.subtitle}).`, 'system');
+
+        if (target.role.id === 'JAGER') {
+          state.pendingHunterId = target.id;
+        }
+
+        if (state.lovers.includes(target.id)) {
+          const otherId = state.lovers.find(id => id !== target.id);
+          const other = state.players[otherId];
+          if (other && other.alive) {
+            other.alive = false;
+            state.revealedToMe.add(other.id);
+            addLog(`💔 <b>${other.username}</b> sterft van liefdesverdriet! Rol: <b>${other.role.icon} ${other.role.name}</b>.`, 'border-pink-500');
+            if (other.role.id === 'JAGER') {
+              state.pendingHunterId = other.id;
+            }
+          }
+        }
+
+        renderBoard();
+      }
+
+      function triggerHunterPhase() {
+        const hunter = state.players[state.pendingHunterId];
+        if (!hunter) return;
+
+        if (hunter.isHuman) {
+          startPhase('HUNTER_SHOT', 25);
+        } else {
+          startPhase('HUNTER_SHOT', 15);
+          setTimeout(() => {
+            if (state.phase !== 'HUNTER_SHOT') return;
+            const choices = getAlivePlayers();
+            if (choices.length > 0) {
+              const victim = choices[Math.floor(Math.random() * choices.length)];
+              addLog(`🎯 <b>Virgil van Dam (${hunter.username})</b> schiet in zijn val op <b>${victim.username}</b>!`, 'border-red-500');
+              eliminatePlayer(victim.id, 'neergeschoten door Virgil van Dam');
+            }
+            state.pendingHunterId = null;
+            if (!checkWinCondition()) {
+              if (state.afterHunterPhase === 'NEXT_NIGHT') {
+                state.round++;
+                startPhase('NIGHT_WOLF', anyAliveWolfIsHuman() ? 75 : 20);
+              } else {
+                startPhase('DAY_DISCUSS', 90);
+              }
+            }
+          }, 3500);
+        }
+      }
+
+      // ==========================================
+      // 12. WINCONDITIES CONTROLEREN
+      // ==========================================
+      function checkWinCondition() {
+        const alive = getAlivePlayers();
+        const wolves = getAliveWolves();
+        const nonWolves = alive.filter(p => p.role.id !== 'WOLF');
+
+        const piper = alive.find(p => p.role.id === 'FLUITSPELER');
+        if (piper && alive.every(p => p.id === piper.id || p.charmed)) {
+          showGameOver(
+            '🪈',
+            'André Real (Fluitspeler) Wint!',
+            `Alle overlevende bewoners van Wakkerdam zijn in de ban van de magische fluit van ${piper.username}!`
+          );
+          return true;
+        }
+
+        if (wolves.length === 0) {
+          showGameOver(
+            '🏆',
+            'Het Dorp Wint!',
+            'Alle exemplaren van De zwarte tulp zijn ontmaskerd en verslagen! Wakkerdam is weer veilig.'
+          );
+          return true;
+        }
+
+        if (wolves.length >= nonWolves.length) {
+          showGameOver(
+            '🐺',
+            'De Zwarte Tulp Wint!',
+            'De weerwolven hebben de meerderheid in Wakkerdam veroverd!'
+          );
+          return true;
+        }
+
+        return false;
+      }
+
+      function showGameOver(icon, title, desc) {
+        state.phase = 'GAME_OVER';
+        setNightVeil(false);
+        renderBoard();
+
+        dom.gameoverIcon.textContent = icon;
+        dom.gameoverTitle.textContent = title;
+        dom.gameoverDesc.textContent = desc;
+        dom.gameoverRolesSummary.innerHTML = '';
+
+        state.players.forEach(p => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between py-1 px-2 rounded bg-black/40 border border-amber-900/50';
+          row.innerHTML = `
+            <span class="font-bold ${p.id === state.myId ? 'text-sky-300' : 'text-amber-100'}">
+              ${escapeHtml(p.username)} ${p.id === state.myId ? '(Jij)' : ''} ${!p.alive ? '💀' : '✅'}
+            </span>
+            <span class="text-amber-300 font-semibold">${p.role.icon} ${p.role.name} (${p.role.subtitle})</span>
+          `;
+          dom.gameoverRolesSummary.appendChild(row);
+        });
+
+        dom.gameoverModal.classList.remove('hidden');
+        dom.gameoverModal.classList.add('flex');
+      }
+
+      // ==========================================
+      // 13. SLIMME AI-CHAT & INTERACTIEVE DORPSCHAT
+      // ==========================================
+      function triggerBotDayChat() {
+        const aliveBots = getAlivePlayers().filter(p => !p.isHuman);
+        if (aliveBots.length === 0) return;
+
+        const speaker = aliveBots[Math.floor(Math.random() * aliveBots.length)];
+        const others = getAlivePlayers().filter(p => p.id !== speaker.id);
+        if (others.length === 0) return;
+        const randomTarget = others[Math.floor(Math.random() * others.length)];
+
+        const lines = [
+          `Ik houd ${randomTarget.username} goed in de gaten, die was wel erg stil...`,
+          `Heeft de Ziener (Dun) of de Vos (Judith van Leer) al iets geroken vannacht?`,
+          `Laten we goed opletten wie er steeds van onderwerp verandert!`,
+          `Ik vertrouw ${randomTarget.username} voor geen cent vandaag.`,
+          `Pas op dat we Joost Groot (Dorpsgek) niet per ongeluk wegstemmen!`,
+          `Wie denken jullie dat De zwarte tulp is? Ik twijfel tussen een paar mensen.`
+        ];
+
+        const chosenLine = lines[Math.floor(Math.random() * lines.length)];
+        addChat(speaker.username, chosenLine, 'normal', speaker.id);
+      }
+
+      function handleHumanChatSubmit(e) {
+        if (e) e.preventDefault();
+        const text = (dom.chatInput.value || '').trim();
+        if (!text) return;
+
+        const me = getMe();
+        if (!me || !me.alive) return;
+
+        if (state.phase === 'NIGHT_WOLF' && me.role.id === 'WOLF') {
+          addChat(me.username, text, 'wolf', state.myId);
+          dom.chatInput.value = '';
+
+          const fellow = getAliveWolves().find(w => w.id !== state.myId && !w.isHuman);
+          if (fellow) {
+            setTimeout(() => {
+              if (state.phase !== 'NIGHT_WOLF') return;
+              const mentioned = state.players.find(p => p.id !== state.myId && p.alive && text.toLowerCase().includes(p.username.toLowerCase()));
+              if (mentioned && mentioned.role.id !== 'WOLF') {
+                state.wolfTargetId = mentioned.id;
+                state.selectedTargetId = mentioned.id;
+                updatePhaseUI();
+                renderBoard();
+                addChat(fellow.username, `Goed plan, ik heb ${mentioned.username} ook als doelwit gemarkeerd!`, 'wolf', fellow.id);
+              } else {
+                const replies = [
+                  'Eens! Laten we slim spelen en overdag niet te opvallend doen.',
+                  'Wie denk jij dat de Ziener of Heks is? Die moeten we snel uitschakelen.',
+                  'Klik maar op een speler en druk op Bevestig zodra je klaar bent!'
+                ];
+                addChat(fellow.username, replies[Math.floor(Math.random() * replies.length)], 'wolf', fellow.id);
+              }
+            }, 900);
+          }
+          return;
+        }
+
+        if (state.phase === 'DAY_DISCUSS') {
+          addChat(me.username, text, 'me', state.myId);
+          dom.chatInput.value = '';
+
+          const mentionedBot = getAlivePlayers().find(
+            p => !p.isHuman && text.toLowerCase().includes(p.username.toLowerCase())
+          );
+
+          setTimeout(() => {
+            if (state.phase !== 'DAY_DISCUSS') return;
+            if (mentionedBot) {
+              const defenses = [
+                `Wat?! Waarom noem je mij ${me.username}? Ik hoor gewoon bij het dorp!`,
+                `Ik ben echt geen weerwolf hoor! Kijk liever naar wie er steeds meeloopt.`,
+                `Dat is precies wat De zwarte tulp zou zeggen om de aandacht af te leiden, ${me.username}!`
+              ];
+              addChat(mentionedBot.username, defenses[Math.floor(Math.random() * defenses.length)], 'normal', mentionedBot.id);
+            } else {
+              const responders = getAlivePlayers().filter(p => !p.isHuman);
+              if (responders.length > 0) {
+                const responder = responders[Math.floor(Math.random() * responders.length)];
+                const reactions = [
+                  `Goed punt ${me.username}, daar had ik nog niet zo over nagedacht.`,
+                  `Ik ben het met ${me.username} eens, laten we straks scherp stemmen!`,
+                  `Hm, ik weet niet zeker of ik jou helemaal vertrouw ${me.username}...`
+                ];
+                addChat(responder.username, reactions[Math.floor(Math.random() * reactions.length)], 'normal', responder.id);
+              }
+            }
+          }, 1000);
+        }
+      }
+
+      // ==========================================
+      // 14. EVENT LISTENERS & MODUS-WISSELAAR
+      // ==========================================
+      function switchStartTab(mode) {
+        if (mode === 'AI') {
+          dom.tabModeAi.className = 'py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 shadow cursor-pointer transition';
+          dom.tabModeFriends.className = 'py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide text-amber-200 hover:bg-amber-950/70 cursor-pointer transition';
+          dom.panelModeAi.classList.remove('hidden');
+          dom.panelModeFriends.classList.add('hidden');
+        } else {
+          dom.tabModeFriends.className = 'py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 shadow cursor-pointer transition';
+          dom.tabModeAi.className = 'py-2 px-2 rounded-lg text-xs font-extrabold uppercase tracking-wide text-amber-200 hover:bg-amber-950/70 cursor-pointer transition';
+          dom.panelModeFriends.classList.remove('hidden');
+          dom.panelModeAi.classList.add('hidden');
+        }
+      }
+
+      if (dom.tabModeAi) dom.tabModeAi.addEventListener('click', () => switchStartTab('AI'));
+      if (dom.tabModeFriends) dom.tabModeFriends.addEventListener('click', () => switchStartTab('FRIENDS'));
+
+      if (dom.btnCreateRoom) dom.btnCreateRoom.addEventListener('click', createFriendsRoom);
+      if (dom.btnJoinRoom) dom.btnJoinRoom.addEventListener('click', joinFriendsRoom);
+      if (dom.btnStartFriendsGame) dom.btnStartFriendsGame.addEventListener('click', startFriendsMatchAsHost);
+
+      if (dom.btnCopyCode) {
+        dom.btnCopyCode.addEventListener('click', () => {
+          const code = dom.lobbyRoomCode.textContent.trim();
+          const tmp = document.createElement('textarea');
+          tmp.value = code;
+          document.body.appendChild(tmp);
+          tmp.select();
+          document.execCommand('copy');
+          document.body.removeChild(tmp);
+          dom.copyCodeLabel.textContent = 'Gekopieerd! ✅';
+          setTimeout(() => { dom.copyCodeLabel.textContent = 'Kopieer code'; }, 2000);
+        });
+      }
+
+      if (dom.btnLeaveLobby) {
+        dom.btnLeaveLobby.addEventListener('click', () => {
+          if (roomUnsubscribe) roomUnsubscribe();
+          state.roomCode = null;
+          state.mode = 'AI';
+          dom.friendsLobbyModal.classList.add('hidden');
+          dom.friendsLobbyModal.classList.remove('flex');
+          dom.startModal.classList.remove('hidden');
+        });
+      }
+
+      if (dom.btnStartGame) {
+        dom.btnStartGame.addEventListener('click', () => initNewGame());
+      }
+
+      if (dom.btnRestartGame) {
+        dom.btnRestartGame.addEventListener('click', () => {
+          if (roomUnsubscribe) roomUnsubscribe();
+          state.phase = 'LOBBY';
+          state.roomCode = null;
+          dom.gameoverModal.classList.add('hidden');
+          dom.gameoverModal.classList.remove('flex');
+          dom.startModal.classList.remove('hidden');
+        });
+      }
+
+      if (dom.btnConfirmRole) {
+        dom.btnConfirmRole.addEventListener('click', () => {
+          if (state.phase === 'REVEAL') {
+            if (state.mode === 'FRIENDS' && !state.isHost) {
+              dom.roleRevealModal.classList.add('hidden');
+              dom.roleRevealModal.classList.remove('flex');
+            } else {
+              advancePhase();
+            }
+          }
+        });
+      }
+
+      if (dom.btnSkipVeil) {
+        dom.btnSkipVeil.addEventListener('click', () => {
+          if (!isHumanAwakeInCurrentPhase() && (state.mode !== 'FRIENDS' || state.isHost)) {
+            advancePhase();
+          }
+        });
+      }
+
+      if (dom.chatForm) {
+        dom.chatForm.addEventListener('submit', handleHumanChatSubmit);
+      }
+
+      if (dom.btnSound) {
+        dom.btnSound.addEventListener('click', () => {
+          soundEnabled = !soundEnabled;
+          dom.soundIcon.textContent = soundEnabled ? '🔊' : '🔇';
+          dom.soundLabel.textContent = soundEnabled ? 'Geluid Aan' : 'Geluid Uit';
+        });
+      }
+
+      if (dom.btnRolesInfo) {
+        dom.btnRolesInfo.addEventListener('click', () => {
+          dom.rolesInfoList.innerHTML = '';
+          Object.values(ROLES).forEach(r => {
+            const box = document.createElement('div');
+            box.className = 'bg-black/50 border border-amber-800/70 rounded-xl p-2.5';
+            box.innerHTML = `
+              <div class="flex items-center justify-between font-extrabold text-amber-300 text-sm">
+                <span>${r.icon} ${r.name} <span class="text-xs font-normal text-amber-200/80">(${r.subtitle})</span></span>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-200">${r.teamLabel}</span>
+              </div>
+              <p class="text-amber-100/85 mt-1 leading-snug">${r.desc}</p>
+            `;
+            dom.rolesInfoList.appendChild(box);
+          });
+          dom.rolesInfoModal.classList.remove('hidden');
+          dom.rolesInfoModal.classList.add('flex');
+        });
+      }
+
+      if (dom.btnCloseRolesInfo) {
+        dom.btnCloseRolesInfo.addEventListener('click', () => {
+          dom.rolesInfoModal.classList.add('hidden');
+          dom.rolesInfoModal.classList.remove('flex');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
